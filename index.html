@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta id="themeColor" name="theme-color" content="#f5ebe3" />
+    <meta name="description" content="Кімната для тих, хто хоче бути поруч, навіть на відстані." />
+    <title>Місце — відеозустрічі</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+    <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js" defer></script>
+    <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js" defer></script>
+    <script src="app.js" defer></script>
+  </head>
+  <body>
+    <main id="homeView" class="home-view">
+      <header class="topbar">
+        <a class="brand" href="#" aria-label="Місце — головна">
+          <span class="brand-mark"><i data-lucide="radio-tower"></i></span>
+          <span>місце<span class="brand-period">.</span></span>
+        </a>
+        <div class="topbar-note"><span class="status-dot"></span> Час побути разом</div>
+        <div class="topbar-actions"><button class="theme-toggle" type="button" title="Увімкнути нічну тему" aria-label="Увімкнути нічну тему"><i data-lucide="moon"></i></button><button class="profile-button" id="nameButton" title="Змінити ім’я"><i data-lucide="user-round"></i><span id="profileName">Гість</span></button></div>
+      </header>
+
+      <section class="home-main">
+        <div class="home-copy">
+          <p class="eyebrow"><span class="eyebrow-line"></span> МАЛЕНЬКИЙ ПРОСТІР ДЛЯ ВАС</p>
+          <h1>Ближче,<br />навіть <span>здалеку.</span></h1>
+          <p class="intro">Створи кімнату для вашої розмови. Поділися посиланням — і відстань стане трохи меншою.</p>
+
+          <div class="create-row">
+            <button class="primary-button" id="createButton"><i data-lucide="plus"></i><span>Створити зустріч</span><i class="button-arrow" data-lucide="arrow-up-right"></i></button>
+            <span class="create-caption">Тільки ви й ваш час</span>
+          </div>
+
+          <div class="join-divider"><span>АБО ПРИЄДНАЙСЯ ЗА КОДОМ</span></div>
+          <form class="join-form" id="joinForm">
+            <label class="code-field"><i data-lucide="hash"></i><input id="roomCodeInput" type="text" placeholder="Наприклад, M8K4QZ" maxlength="12" autocomplete="off" aria-label="Код зустрічі" /></label>
+            <button class="join-button" type="submit">Приєднатися <i data-lucide="arrow-right"></i></button>
+          </form>
+          <p class="join-error" id="joinError" role="status"></p>
+        </div>
+
+        <div class="home-art" aria-label="Ілюстрація відеозустрічі">
+          <div class="art-coordinate">ОДНА КІМНАТА · ДВА МІСТА</div>
+          <div class="art-ring art-ring-outer"></div>
+          <div class="art-ring art-ring-inner"></div>
+          <div class="art-sun"></div>
+          <div class="art-person art-person-back"><span></span></div>
+          <div class="art-person art-person-front"><span></span></div>
+          <div class="art-glow"></div>
+          <div class="art-caption"><span class="art-caption-dot"></span><span>я поруч, навіть коли далеко</span><span class="art-caption-time">09:41</span></div>
+          <div class="art-side-label">ДЛЯ ТИХ, ХТО СУМУЄ</div>
+          <div class="art-crosshair">+</div>
+        </div>
+      </section>
+
+      <footer class="home-footer"><span>ВІДСТАНЬ — НЕ ПРИВІД ВІДКЛАДАТИ РОЗМОВУ</span><span>КАМЕРА · ГОЛОС · ВИ</span></footer>
+    </main>
+
+    <main id="meetingView" class="meeting-view hidden">
+      <header class="meeting-topbar">
+        <a class="brand meeting-brand" href="#" id="homeLink" aria-label="На головну"><span class="brand-mark"><i data-lucide="radio-tower"></i></span><span>місце<span class="brand-period">.</span></span></a>
+        <div class="room-heading"><span class="room-live-dot"></span><div><strong>Ваша кімната</strong><span id="roomCodeLabel">КОД ————</span></div></div>
+        <div class="meeting-top-actions"><span class="participant-count" id="participantCount"><i data-lucide="users-round"></i> 1</span><button class="icon-button theme-toggle" type="button" title="Увімкнути нічну тему" aria-label="Увімкнути нічну тему"><i data-lucide="moon"></i></button><button class="icon-button invite-top-button" id="copyInviteTop" title="Скопіювати запрошення"><i data-lucide="link-2"></i></button><button class="icon-button" id="leaveTop" title="Вийти із зустрічі"><i data-lucide="log-out"></i></button></div>
+      </header>
+
+      <section class="meeting-content">
+        <div class="meeting-workspace" id="meetingWorkspace">
+          <div class="stage-column">
+            <div class="stage-heading"><div><p class="eyebrow"><span class="eyebrow-line"></span> ВАШ МАЛЕНЬКИЙ ПРОСТІР</p><h1 id="meetingTitle">Можна починати</h1></div><div class="stage-clock" id="meetingClock">00:00</div></div>
+            <div class="stage-toolbar">
+              <div class="layout-picker" role="group" aria-label="Макет камер">
+                <button class="layout-button is-selected" data-layout="grid" title="Сітка" aria-label="Макет: сітка"><i data-lucide="layout-grid"></i></button>
+                <button class="layout-button" data-layout="speaker" title="Доповідач і учасники" aria-label="Макет: доповідач"><i data-lucide="panels-top-left"></i></button>
+                <button class="layout-button" data-layout="filmstrip" title="Велика камера й стрічка" aria-label="Макет: стрічка"><i data-lucide="gallery-horizontal"></i></button>
+              </div>
+              <div class="stage-tools">
+                <button class="stage-tool-button" id="peopleButton" aria-expanded="false" title="Показати учасників"><i data-lucide="users-round"></i><span>Люди</span><b id="peopleCount">1</b></button>
+                <button class="stage-tool-button" id="chatButton" aria-expanded="false" title="Відкрити чат"><i data-lucide="message-circle"></i><span>Чат</span><b id="chatBadge" class="chat-badge hidden">0</b></button>
+                <button class="guest-profile-button" id="profileButton" title="Змінити ім’я та аватар"><span class="profile-avatar" id="profileAvatar">🌙</span><span id="meetingName">Гість</span></button>
+              </div>
+            </div>
+            <div class="stage" id="stage" data-layout="grid" aria-live="polite">
+              <div class="empty-stage" id="emptyStage"><span class="empty-stage-icon"><i data-lucide="heart-handshake"></i></span><strong>Чекаємо на твоїх близьких</strong><span>Надішли їм запрошення — і ви знову поруч.</span><button class="text-button" id="copyInviteEmpty"><i data-lucide="copy"></i> Запросити до кімнати</button></div>
+              <div class="tile-grid" id="tileGrid"></div>
+              <div class="stage-watermark">МІСЦЕ / <span id="watermarkCode">—</span></div>
+            </div>
+          </div>
+          <aside class="call-panel hidden" id="callPanel" aria-label="Учасники та чат">
+            <header class="call-panel-header"><h2 id="callPanelTitle">Учасники</h2><button class="icon-button" id="closeCallPanel" title="Закрити панель" aria-label="Закрити панель"><i data-lucide="x"></i></button></header>
+            <section id="peoplePanel" class="people-panel"><p class="panel-kicker">ЗАРАЗ РАЗОМ</p><div id="peopleList" class="people-list"></div></section>
+            <section id="chatPanel" class="chat-panel hidden" aria-label="Чат зустрічі">
+              <div id="chatMessages" class="chat-messages" aria-live="polite"><div class="chat-empty"><i data-lucide="messages-square"></i><span>Почніть розмову тут</span><small>Повідомлення бачать усі в кімнаті</small></div></div>
+              <form id="chatForm" class="chat-form"><label><span class="visually-hidden">Ваше повідомлення</span><input id="chatInput" type="text" maxlength="500" autocomplete="off" placeholder="Напиши щось…" /></label><button type="submit" aria-label="Надіслати повідомлення" title="Надіслати"><i data-lucide="arrow-up"></i></button></form>
+            </section>
+          </aside>
+        </div>
+        <div class="meeting-bottom">
+          <div class="bottom-left"><span class="call-quality"><span></span> Ви на зв’язку</span><span class="call-timer" id="callTimer">00:00</span></div>
+          <div class="controls" aria-label="Керування зустріччю">
+            <button class="control-button" id="micButton" title="Увімкнути мікрофон"><span class="control-icon"><i data-lucide="mic-off"></i></span><span>Мікрофон</span></button>
+            <button class="control-button" id="cameraButton" title="Увімкнути камеру"><span class="control-icon"><i data-lucide="video-off"></i></span><span>Камера</span></button>
+            <button class="control-button share-control" id="shareButton" title="Показати екран"><span class="control-icon"><i data-lucide="monitor-up"></i></span><span>Екран</span></button>
+            <button class="control-button" id="effectsButton" title="Налаштування камери"><span class="control-icon"><i data-lucide="sun"></i></span><span>Камера</span></button>
+            <button class="control-button leave-control" id="leaveButton" title="Завершити зустріч"><span class="control-icon"><i data-lucide="phone-off"></i></span><span>Вийти</span></button>
+          </div>
+          <div class="bottom-right"><button class="icon-button" id="fullscreenButton" title="На весь екран"><i data-lucide="maximize"></i></button><span class="secure-label"><i data-lucide="lock-keyhole"></i> приватно</span></div>
+        </div>
+      </section>
+    </main>
+
+    <div class="modal-backdrop hidden" id="effectsModal" role="dialog" aria-modal="true" aria-labelledby="effectsTitle">
+      <section class="effects-panel">
+        <div class="panel-heading"><div><p class="eyebrow">КАМЕРА</p><h2 id="effectsTitle">Підсвічування обличчя</h2></div><button class="icon-button" id="closeEffects" aria-label="Закрити"><i data-lucide="x"></i></button></div>
+        <p class="panel-copy">Налаштуй зображення своєї камери та колір підсвічування.</p>
+        <label class="effect-toggle mirror-toggle"><span class="mirror-icon"><i data-lucide="flip-horizontal-2"></i></span><span><strong>Віддзеркалити камеру</strong><small>Лише для твого зображення</small></span><input id="mirrorToggle" type="checkbox" /><span class="toggle-track"></span></label>
+        <label class="effect-toggle"><span class="effect-swatch" id="effectSwatch"></span><span><strong>Увімкнути підсвічування</strong><small>Кольорова рамка навколо камери</small></span><input id="glowToggle" type="checkbox" /><span class="toggle-track"></span></label>
+        <label class="color-row"><span>Колір підсвічування</span><input id="glowColor" type="color" value="#d76f70" aria-label="Колір підсвічування" /></label>
+        <label class="range-row"><span>Ширина підсвічування</span><input id="glowWidth" type="range" min="1" max="12" value="4" /><span class="range-value" id="glowWidthValue">4 px</span></label>
+        <label class="range-row"><span>Яскравість</span><input id="glowStrength" type="range" min="10" max="100" value="58" /><span class="range-value" id="glowValue">58%</span></label>
+      </section>
+    </div>
+    <div class="modal-backdrop hidden" id="profileModal" role="dialog" aria-modal="true" aria-labelledby="profileTitle">
+      <section class="effects-panel profile-panel">
+        <div class="panel-heading"><div><p class="eyebrow">ТВІЙ ПРОФІЛЬ</p><h2 id="profileTitle">Як тебе бачать інші</h2></div><button class="icon-button" id="closeProfile" aria-label="Закрити"><i data-lucide="x"></i></button></div>
+        <label class="profile-name-field"><span>Ім’я</span><input id="profileNameInput" type="text" maxlength="28" autocomplete="nickname" placeholder="Наприклад, Марія" /></label>
+        <p class="avatar-picker-label">Обери аватар</p>
+        <div class="avatar-picker" id="avatarPicker" role="group" aria-label="Обери аватар">
+          <button type="button" class="avatar-option" data-avatar="🌙" aria-label="Місяць">🌙</button><button type="button" class="avatar-option" data-avatar="🌷" aria-label="Тюльпан">🌷</button><button type="button" class="avatar-option" data-avatar="🍒" aria-label="Вишні">🍒</button><button type="button" class="avatar-option" data-avatar="☀️" aria-label="Сонце">☀️</button><button type="button" class="avatar-option" data-avatar="🪻" aria-label="Лаванда">🪻</button><button type="button" class="avatar-option" data-avatar="☕" aria-label="Кава">☕</button><button type="button" class="avatar-option" data-avatar="🐈" aria-label="Котик">🐈</button><button type="button" class="avatar-option" data-avatar="⭐" aria-label="Зірка">⭐</button>
+        </div>
+        <button type="button" class="primary-button profile-save-button" id="saveProfile">Зберегти профіль</button>
+      </section>
+    </div>
+    <div class="toast" id="toast" role="status"></div>
+    <audio id="remoteAudio" autoplay></audio>
+  </body>
+</html>
