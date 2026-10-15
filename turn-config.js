@@ -1,1 +1,1 @@
-window.DURY_TURN_CREDENTIALS_URL = "";
+window.DURY_TURN_CREDENTIALS_URL = "https://dury-turn.bogdankravcenko91.workers.dev/";
