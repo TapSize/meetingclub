@@ -1,0 +1,1 @@
+window.DURY_TURN_CREDENTIALS_URL = "";

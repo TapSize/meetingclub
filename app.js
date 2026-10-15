@@ -670,7 +670,32 @@
     localStorage.setItem(`dury-room-moderation:${state.roomCode}`, JSON.stringify([...state.moderationByClient]));
   }
 
-  function probeRoom(hostId) {
+  let peerOptionsCache = null;
+  let peerOptionsExpiresAt = 0;
+
+  async function getPeerOptions() {
+    const endpoint = window.DURY_TURN_CREDENTIALS_URL;
+    if (!endpoint) return {};
+    if (peerOptionsCache && Date.now() < peerOptionsExpiresAt) return peerOptionsCache;
+    const response = await fetch(endpoint, { cache: "no-store", headers: { Accept: "application/json" } });
+    if (!response.ok) throw new Error(`TURN credentials request failed (${response.status})`);
+    const credentials = await response.json();
+    if (!Array.isArray(credentials.iceServers) || credentials.iceServers.length === 0) {
+      throw new Error("TURN credentials response contains no ICE servers");
+    }
+    peerOptionsCache = { config: { iceServers: credentials.iceServers } };
+    peerOptionsExpiresAt = Date.now() + 3 * 60 * 60 * 1000;
+    return peerOptionsCache;
+  }
+
+  async function probeRoom(hostId) {
+    let peerOptions;
+    try {
+      peerOptions = await getPeerOptions();
+    } catch (error) {
+      console.error(error);
+      return null;
+    }
     return new Promise((resolve) => {
       let probe;
       let finished = false;
@@ -683,7 +708,7 @@
       };
       const timeout = setTimeout(() => finish(null), 5000);
       try {
-        probe = new Peer();
+        probe = new Peer(undefined, peerOptions);
         probe.on("open", () => {
           const connection = probe.connect(hostId, { reliable: true });
           connection.on("open", () => finish(true));
@@ -721,7 +746,8 @@
     createButton.querySelector("span").textContent = isHost ? "Створюємо зустріч…" : "Приєднуємося…";
 
     try {
-      const peer = isHost ? new Peer(hostId) : new Peer();
+      const peerOptions = await getPeerOptions();
+      const peer = isHost ? new Peer(hostId, peerOptions) : new Peer(undefined, peerOptions);
       state.peer = peer;
       state.isHost = isHost;
       state.roomCode = code;
