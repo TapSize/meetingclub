@@ -85,6 +85,9 @@
       pendingLeaveEvents: new Map(),
       presenceInterval: null,
       lastHostHeartbeatAt: 0,
+      hostReconnectTimer: null,
+      hostReconnectAttempts: 0,
+      hostProbePending: false,
       leavePromptOpen: false,
       isLeaving: false,
   };
@@ -867,7 +870,7 @@
           if (!connection.open) return;
           const participant = state.participants.get(peerId);
           const lastSeenAt = participant?.lastSeenAt || participant?.joinedAt || now;
-          if (participant && now - lastSeenAt > 16000) {
+          if (participant && now - lastSeenAt > 120000) {
             state.pendingLeaveEvents.set(peerId, { event: "left", name: participant.name });
             connection.close();
             return;
@@ -877,9 +880,17 @@
       } else {
         const hostConnection = state.dataConnections.get(state.hostId);
         if (hostConnection?.open) hostConnection.send({ type: "presence", sessionId: state.sessionId, at: now });
-        if (now - state.lastHostHeartbeatAt > 20000) {
-          toast("Встреча завершена");
-          cleanup();
+        if (now - state.lastHostHeartbeatAt > 60000 && !state.hostProbePending) {
+          state.hostProbePending = true;
+          probeRoom(state.hostId).then((available) => {
+            if (!state.peer || state.isHost) return;
+            const hostConnectionOpen = state.dataConnections.get(state.hostId)?.open;
+            if (available === false && !hostConnectionOpen) {
+              removeRecentRoom(state.roomCode);
+              toast("Встреча завершена");
+              cleanup();
+            } else state.lastHostHeartbeatAt = Date.now();
+          }).finally(() => { state.hostProbePending = false; });
         }
       }
     }, 5000);
@@ -1233,11 +1244,31 @@
         updateRoomUI();
         renderTiles();
       } else if (connection.peer === state.hostId) {
-        removeRecentRoom(state.roomCode);
-        toast("Встреча завершена");
-        cleanup();
+        scheduleHostReconnect();
       } else removeParticipant(connection.peer);
     });
+  }
+
+  function scheduleHostReconnect() {
+    if (state.isHost || !state.peer || !state.hostId || state.hostReconnectTimer) return;
+    const delay = Math.min(8000, 1000 * (2 ** Math.min(state.hostReconnectAttempts, 3)));
+    state.hostReconnectAttempts += 1;
+    state.hostReconnectTimer = window.setTimeout(() => {
+      state.hostReconnectTimer = null;
+      if (!state.peer || state.isHost) return;
+      const connection = state.peer.connect(state.hostId, { reliable: true });
+      attachDataConnection(connection);
+      const timeout = window.setTimeout(() => {
+        if (!connection.open) connection.close();
+      }, 7000);
+      connection.on("open", () => {
+        clearTimeout(timeout);
+        state.hostReconnectAttempts = 0;
+        state.lastHostHeartbeatAt = Date.now();
+        connection.send({ type: "join", peerId: state.peer.id, clientId: state.clientId, sessionId: state.sessionId, name: getName(), avatar: state.avatar, joinedAt: state.localJoinedAt, micOn: state.micOn, cameraOn: state.cameraOn, screenOn: state.screenOn, handoff: true });
+      });
+      connection.on("error", () => clearTimeout(timeout));
+    }, delay);
   }
 
   function handleMessage(senderId, message) {
@@ -2407,6 +2438,8 @@
     state.isLeaving = false;
     clearInterval(state.presenceInterval);
     state.presenceInterval = null;
+    clearTimeout(state.hostReconnectTimer);
+    state.hostReconnectTimer = null;
     if (!meetingView.classList.contains("hidden")) playUiSound("disconnected");
     clearInterval(state.clockInterval);
     clearInterval(state.qualityInterval);
