@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta id="themeColor" name="theme-color" content="#181a1c" />
+    <meta name="description" content="DURY — видеовстречи" />
+    <title>DURY — видеовстречи</title>
+    <link rel="stylesheet" href="styles.css" />
+    <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js" defer></script>
+    <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js" defer></script>
+    <script src="app.js" defer></script>
+  </head>
+  <body>
+    <main id="homeView" class="home-view" data-home-tab="home">
+      <aside class="home-sidebar">
+        <a class="home-brand" href="#" aria-label="DURY — главная"><img src="src/dury_logo.png" alt="" /><span>DURY</span></a>
+        <nav class="home-navigation" aria-label="Главная навигация">
+          <a class="home-nav-item is-active" id="homeNav" href="#"><i data-lucide="house"></i><span>Главная</span></a>
+          <a class="home-nav-item" id="recentNav" href="#recentMeetings"><i data-lucide="messages-square"></i><span>Недавние</span></a>
+          <button class="home-nav-item" id="profileNav" type="button"><i data-lucide="user-round"></i><span>Профиль</span></button>
+        </nav>
+        <div class="home-sidebar-footer"><span class="sidebar-status-dot"></span><span>DURY / WEB</span></div>
+      </aside>
+
+      <div class="home-dashboard">
+        <header class="topbar">
+          <span class="home-section-label" id="homeSectionLabel">DURY / ВИДЕОСВЯЗЬ</span>
+          <div class="topbar-actions"><select id="homeLanguageSelect" class="language-select" aria-label="Язык интерфейса"><option value="ru">RU</option><option value="uk">UK</option><option value="en">EN</option></select><button class="theme-toggle" type="button" title="Тёмная тема" aria-label="Тёмная тема"><i data-lucide="moon"></i></button><button class="profile-button" id="nameButton" title="Изменить имя"><span class="home-profile-avatar" id="homeProfileAvatar">🌙</span><span id="profileName">Гость</span></button></div>
+        </header>
+
+        <section class="home-main">
+          <div class="home-copy">
+            <p class="eyebrow"><span class="eyebrow-line"></span> DURY / ROOM</p>
+            <h1>Всегда<br /><span>рядом.</span></h1>
+            <p class="intro">Создавайте встречи и подключайтесь по коду.</p>
+          </div>
+          <div class="home-art">
+            <span class="hero-logo-fallback hidden" id="heroLogoFallback">DURY</span>
+            <img class="hero-logo" id="heroLogo" src="src/dury_logo.png" alt="DURY" />
+          </div>
+        </section>
+
+        <section class="home-actions" aria-label="Создание и вход во встречу">
+          <article class="home-action-card create-card">
+            <div class="home-card-heading"><span class="home-card-icon"><i data-lucide="plus"></i></span><div><h2>Новая встреча</h2><p>Создать комнату</p></div></div>
+            <button class="primary-button" id="createButton"><i data-lucide="plus"></i><span>Создать встречу</span></button>
+          </article>
+          <article class="home-action-card join-card">
+            <div class="home-card-heading"><span class="home-card-icon"><i data-lucide="link-2"></i></span><div><h2>Войти по коду</h2><p>Присоединиться к комнате</p></div></div>
+            <form class="join-form" id="joinForm">
+              <label class="code-field"><i data-lucide="hash"></i><input id="roomCodeInput" type="text" placeholder="Код встречи" maxlength="12" autocomplete="off" aria-label="Код встречи" /></label>
+              <button class="join-button" type="submit">Войти <i data-lucide="arrow-right"></i></button>
+            </form>
+            <p class="join-error" id="joinError" role="status"></p>
+          </article>
+        </section>
+
+        <section class="recent-section" id="recentMeetings" aria-labelledby="recentTitle">
+          <header class="recent-heading"><h2 id="recentTitle">Недавние встречи</h2><span id="recentCount">0</span></header>
+          <div class="recent-list" id="recentRooms"></div>
+        </section>
+      </div>
+    </main>
+
+    <main id="meetingView" class="meeting-view hidden">
+      <nav class="meeting-rail" aria-label="Навигация встречи">
+        <a class="rail-logo" href="#" id="homeLink" aria-label="DURY — главная"><img src="src/dury_logo.png" alt="DURY" /></a>
+        <button class="rail-button" id="peopleButton" aria-expanded="true" title="Участники"><i data-lucide="users-round"></i><span class="visually-hidden">Участники</span><b id="peopleCount">1</b></button>
+        <button class="rail-button" id="chatButton" aria-expanded="false" title="Чат"><i data-lucide="message-circle"></i><span class="visually-hidden">Чат</span><b id="chatBadge" class="chat-badge hidden">0</b></button>
+        <div class="rail-spacer"></div>
+        <button class="icon-button theme-toggle rail-theme" type="button" title="Тёмная тема" aria-label="Тёмная тема"><i data-lucide="moon"></i></button>
+      </nav>
+      <aside class="meeting-sidebar" id="meetingSidebar" aria-label="Участники встречи">
+        <header class="sidebar-header"><div class="sidebar-brand"><strong>DURY</strong><small>ВСТРЕЧА</small></div></header>
+        <section id="peoplePanel" class="people-panel"><p class="panel-kicker">УЧАСТНИКИ</p><div id="peopleList" class="people-list"></div></section>
+      </aside>
+      <header class="meeting-topbar">
+        <div class="room-heading"><span class="room-live-dot"></span><div><strong>Встреча</strong><span id="roomCodeLabel">КОД ————</span></div></div>
+        <div class="meeting-top-actions"><span class="participant-count" id="participantCount"><i data-lucide="users-round"></i> 1</span><span class="connection-quality" id="connectionQuality" data-quality="idle" title="Качество соединения" aria-live="polite"><i data-lucide="signal"></i><span>Ожидание</span></span><select id="meetingLanguageSelect" class="language-select" aria-label="Язык интерфейса"><option value="ru">RU</option><option value="uk">UK</option><option value="en">EN</option></select><button class="guest-profile-button" id="profileButton" title="Профиль"><span class="profile-avatar" id="profileAvatar">🌙</span><span id="meetingName">Гость</span></button><button class="icon-button invite-top-button" id="copyInviteTop" title="Скопировать приглашение"><i data-lucide="link-2"></i></button><button class="icon-button" id="leaveTop" title="Выйти из встречи"><i data-lucide="log-out"></i></button></div>
+      </header>
+
+      <section class="meeting-content">
+        <div class="meeting-workspace" id="meetingWorkspace">
+          <div class="stage-column">
+            <div class="stage-heading"><div><p class="eyebrow"><span class="eyebrow-line"></span> DURY / ROOM</p><h1 id="meetingTitle">Встреча</h1></div><div class="stage-clock" id="meetingClock">00:00</div></div>
+            <div class="stage-toolbar">
+              <div class="layout-picker" role="group" aria-label="Макет камер">
+                <button class="layout-button is-selected" data-layout="grid" title="Сетка" aria-label="Сетка"><i data-lucide="layout-grid"></i></button>
+                <button class="layout-button" data-layout="speaker" title="Активный участник" aria-label="Активный участник"><i data-lucide="panels-top-left"></i></button>
+                <button class="layout-button" data-layout="filmstrip" title="Лента" aria-label="Лента"><i data-lucide="gallery-horizontal"></i></button>
+                <button class="layout-button free-layout-toggle" id="freeLayoutButton" type="button" aria-pressed="false" title="Свободная раскладка" aria-label="Свободная раскладка"><i data-lucide="move"></i></button>
+              </div>
+            </div>
+            <div class="stage" id="stage" data-layout="grid" aria-live="polite">
+              <div class="empty-stage" id="emptyStage"><strong>Ожидание участников</strong><button class="text-button" id="copyInviteEmpty"><i data-lucide="copy"></i> Скопировать приглашение</button></div>
+              <div class="tile-grid" id="tileGrid"></div>
+              <div class="stage-watermark">DURY / <span id="watermarkCode">—</span></div>
+            </div>
+          </div>
+          <aside class="call-panel hidden" id="callPanel" aria-label="Чат встречи">
+            <header class="call-panel-header"><h2 id="callPanelTitle">Чат</h2><button class="icon-button" id="closeCallPanel" title="Закрыть чат" aria-label="Закрыть чат"><i data-lucide="x"></i></button></header>
+            <section id="chatPanel" class="chat-panel hidden" aria-label="Чат зустрічі">
+              <div id="chatMessages" class="chat-messages" aria-live="polite"><div class="chat-empty"><i data-lucide="messages-square"></i><span>Почніть розмову тут</span><small>Повідомлення бачать усі в кімнаті</small></div></div>
+              <form id="chatForm" class="chat-form"><label><span class="visually-hidden">Ваше повідомлення</span><input id="chatInput" type="text" maxlength="500" autocomplete="off" placeholder="Напиши щось…" /></label><button type="submit" aria-label="Надіслати повідомлення" title="Надіслати"><i data-lucide="arrow-up"></i></button></form>
+            </section>
+          </aside>
+        </div>
+        <div class="meeting-bottom">
+          <div class="bottom-left"><span class="call-quality"><span></span> Ви на зв’язку</span><span class="call-timer" id="callTimer">00:00</span></div>
+          <div class="controls" aria-label="Керування зустріччю">
+            <button class="control-button" id="micButton" title="Включить микрофон"><span class="control-icon"><i data-lucide="mic-off"></i></span><span>Микрофон</span></button>
+            <button class="control-button" id="cameraButton" title="Включить камеру"><span class="control-icon"><i data-lucide="video-off"></i></span><span>Камера</span></button>
+            <button class="control-button share-control" id="shareButton" title="Показать экран"><span class="control-icon"><i data-lucide="monitor-up"></i></span><span>Экран</span></button>
+            <button class="control-button" id="effectsButton" title="Настройки изображения"><span class="control-icon"><i data-lucide="sun"></i></span><span>Эффекты</span></button>
+            <button class="control-button leave-control" id="leaveButton" title="Завершить встречу"><span class="control-icon"><i data-lucide="phone-off"></i></span><span>Выйти</span></button>
+          </div>
+          <div class="bottom-right"><button class="icon-button" id="audioSettingsButton" title="Настройки звука" aria-label="Настройки звука"><i data-lucide="audio-lines"></i></button><button class="icon-button" id="fullscreenButton" title="На весь экран" aria-label="На весь экран"><i data-lucide="maximize"></i></button><span class="secure-label"><i data-lucide="lock-keyhole"></i> приватно</span></div>
+        </div>
+      </section>
+    </main>
+
+    <div class="modal-backdrop hidden" id="effectsModal" role="dialog" aria-modal="true" aria-labelledby="effectsTitle">
+      <section class="effects-panel">
+        <div class="panel-heading"><div><p class="eyebrow">ИЗОБРАЖЕНИЕ</p><h2 id="effectsTitle">Настройки камеры</h2></div><button class="icon-button" id="closeEffects" aria-label="Закрыть"><i data-lucide="x"></i></button></div>
+        <label class="effect-toggle mirror-toggle"><span class="mirror-icon"><i data-lucide="flip-horizontal-2"></i></span><span><strong>Зеркальное отображение</strong><small>Только для вас</small></span><input id="mirrorToggle" type="checkbox" /><span class="toggle-track"></span></label>
+        <label class="effect-toggle"><span class="effect-swatch" id="effectSwatch"></span><span><strong>Подсветка камеры</strong><small>Цветная рамка на изображении</small></span><input id="glowToggle" type="checkbox" /><span class="toggle-track"></span></label>
+        <label class="color-row"><span>Цвет</span><input id="glowColor" type="color" value="#c5683c" aria-label="Цвет подсветки" /></label>
+        <label class="range-row"><span>Ширина</span><input id="glowWidth" type="range" min="1" max="12" value="4" /><span class="range-value" id="glowWidthValue">4 px</span></label>
+        <label class="range-row"><span>Яркость</span><input id="glowStrength" type="range" min="10" max="100" value="58" /><span class="range-value" id="glowValue">58%</span></label>
+        <label class="device-field"><span><i data-lucide="camera"></i> Камера</span><select id="cameraInputSelect" aria-label="Источник видео"><option value="">Системная по умолчанию</option></select></label>
+        <label class="device-field"><span><i data-lucide="scan"></i> Разрешение</span><select id="cameraResolutionSelect" aria-label="Разрешение видео"><option value="480">480p</option><option value="720">720p</option><option value="1080">1080p</option></select></label>
+        <label class="device-field"><span><i data-lucide="image"></i> Фон камеры</span><select id="cameraBackgroundSelect" aria-label="Фон камеры"><option value="none">Без фона</option><option value="blur">Размытие</option><option value="image">Изображение</option></select></label>
+        <label class="background-image-field hidden" id="backgroundImageField"><span>Изображение для фона</span><input id="backgroundImageInput" type="file" accept="image/*" /><small id="backgroundImageName">Изображение не выбрано</small></label>
+        <p class="device-note" id="cameraSettingsNote" role="status"></p>
+      </section>
+    </div>
+    <div class="modal-backdrop hidden" id="profileModal" role="dialog" aria-modal="true" aria-labelledby="profileTitle">
+      <section class="effects-panel profile-panel">
+        <div class="panel-heading"><div><p class="eyebrow">ПРОФИЛЬ</p><h2 id="profileTitle">Настройки профиля</h2></div><button class="icon-button" id="closeProfile" aria-label="Закрыть"><i data-lucide="x"></i></button></div>
+        <label class="profile-name-field"><span>Имя</span><input id="profileNameInput" type="text" maxlength="28" autocomplete="nickname" placeholder="Имя" /></label>
+        <p class="avatar-picker-label">Фото профілю</p>
+        <div class="avatar-upload-row"><label class="avatar-upload" for="avatarInput"><span class="avatar-upload-preview" id="avatarPreview">🌙</span><span class="avatar-upload-copy"><strong>Завантажити зображення</strong><small>JPG, PNG або WebP · до 5 МБ</small></span><i data-lucide="image-plus"></i></label><input class="visually-hidden" id="avatarInput" type="file" accept="image/*" aria-label="Завантажити фото профілю" /><button class="icon-button avatar-reset" id="resetAvatar" type="button" title="Повернути аватар за замовчуванням" aria-label="Повернути аватар за замовчуванням"><i data-lucide="rotate-ccw"></i></button></div>
+        <div class="profile-shortcuts"><button class="profile-setting-link" id="profileAudioSettings" type="button"><i data-lucide="audio-lines"></i><span>Микрофон и наушники</span><i data-lucide="arrow-up-right"></i></button><button class="profile-setting-link" id="profileCameraSettings" type="button"><i data-lucide="camera"></i><span>Камера и фон</span><i data-lucide="arrow-up-right"></i></button></div>
+        <button type="button" class="primary-button profile-save-button" id="saveProfile">Сохранить</button>
+      </section>
+    </div>
+    <div class="modal-backdrop hidden" id="audioSettingsModal" role="dialog" aria-modal="true" aria-labelledby="audioSettingsTitle">
+      <section class="effects-panel audio-settings-panel">
+        <div class="panel-heading"><div><p class="eyebrow">ЗВУК</p><h2 id="audioSettingsTitle">Аудиоустройства</h2></div><button class="icon-button" id="closeAudioSettings" aria-label="Закрыть"><i data-lucide="x"></i></button></div>
+        <p class="panel-copy">Выбери микрофон и устройство для звука собеседников.</p>
+        <label class="effect-toggle sound-toggle"><span class="mirror-icon"><i data-lucide="volume-2"></i></span><span><strong>Звуки интерфейса</strong><small>Подключение, камера и микрофон</small></span><input id="uiSoundToggle" type="checkbox" checked /><span class="toggle-track"></span></label>
+        <label class="device-field"><span><i data-lucide="mic-2"></i> Микрофон</span><select id="audioInputSelect" aria-label="Источник микрофона"><option value="">Системный по умолчанию</option></select></label>
+        <label class="device-field" id="audioOutputField"><span><i data-lucide="headphones"></i> Наушники / динамики</span><select id="audioOutputSelect" aria-label="Устройство воспроизведения"><option value="">Системный по умолчанию</option></select></label>
+        <p class="device-note" id="audioDeviceNote" role="status"></p>
+      </section>
+    </div>
+    <div class="toast" id="toast" role="status"></div>
+    <audio id="remoteAudio" autoplay></audio>
+  </body>
+</html>
