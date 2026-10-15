@@ -9,11 +9,22 @@
     return created;
   }
 
+  function getStableSessionId() {
+    const key = "dury-session-id";
+    const existing = sessionStorage.getItem(key);
+    if (existing) return existing;
+    const bytes = crypto.getRandomValues(new Uint8Array(16));
+    const created = `session-${Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("")}`;
+    sessionStorage.setItem(key, created);
+    return created;
+  }
+
   const state = {
     peer: null,
     isHost: false,
     formerAdminId: "",
     clientId: getStableClientId(),
+    sessionId: getStableSessionId(),
     roomCode: "",
     hostId: "",
     localJoinedAt: 0,
@@ -72,6 +83,8 @@
       bannedClientIds: new Set(),
       moderationByClient: new Map(),
       pendingLeaveEvents: new Map(),
+      presenceInterval: null,
+      lastHostHeartbeatAt: 0,
       leavePromptOpen: false,
       isLeaving: false,
   };
@@ -367,10 +380,14 @@
     if (!context) return;
     const cues = {
       connected: [{ frequency: 587, duration: 0.1 }, { frequency: 784, duration: 0.14 }],
+      participantJoined: [{ frequency: 740, duration: 0.07 }, { frequency: 988, duration: 0.11 }],
+      participantLeft: [{ frequency: 523, duration: 0.08 }, { frequency: 392, duration: 0.12 }],
       micOn: [{ frequency: 660, duration: 0.09 }],
       micOff: [{ frequency: 392, duration: 0.1 }],
       cameraOn: [{ frequency: 523, duration: 0.08 }, { frequency: 659, duration: 0.1 }],
       cameraOff: [{ frequency: 440, duration: 0.1 }],
+      screenOn: [{ frequency: 659, duration: 0.07 }, { frequency: 784, duration: 0.08 }, { frequency: 988, duration: 0.12 }],
+      screenOff: [{ frequency: 784, duration: 0.07 }, { frequency: 587, duration: 0.1 }],
       disconnected: [{ frequency: 659, duration: 0.09 }, { frequency: 523, duration: 0.1 }, { frequency: 392, duration: 0.13 }]
     }[cue];
     if (!cues) return;
@@ -783,7 +800,7 @@
           const connection = peer.connect(hostId, { reliable: true });
           attachDataConnection(connection);
           connection.on("open", () => {
-            connection.send({ type: "join", peerId: peer.id, clientId: state.clientId, name: getName(), avatar: state.avatar, joinedAt: state.localJoinedAt, micOn: state.micOn, cameraOn: state.cameraOn, screenOn: state.screenOn });
+            connection.send({ type: "join", peerId: peer.id, clientId: state.clientId, sessionId: state.sessionId, name: getName(), avatar: state.avatar, joinedAt: state.localJoinedAt, micOn: state.micOn, cameraOn: state.cameraOn, screenOn: state.screenOn });
             saveRecentRoom(code, hostId);
             showMeeting(code);
             state.mediaReady = enableMedia();
@@ -839,6 +856,35 @@
     toast("Не вдалося приєднатися");
   }
 
+  function startPresenceMonitor() {
+    clearInterval(state.presenceInterval);
+    state.lastHostHeartbeatAt = Date.now();
+    state.presenceInterval = window.setInterval(() => {
+      if (!state.peer || meetingView.classList.contains("hidden")) return;
+      const now = Date.now();
+      if (state.isHost) {
+        state.dataConnections.forEach((connection, peerId) => {
+          if (!connection.open) return;
+          const participant = state.participants.get(peerId);
+          const lastSeenAt = participant?.lastSeenAt || participant?.joinedAt || now;
+          if (participant && now - lastSeenAt > 16000) {
+            state.pendingLeaveEvents.set(peerId, { event: "left", name: participant.name });
+            connection.close();
+            return;
+          }
+          connection.send({ type: "presence", at: now });
+        });
+      } else {
+        const hostConnection = state.dataConnections.get(state.hostId);
+        if (hostConnection?.open) hostConnection.send({ type: "presence", sessionId: state.sessionId, at: now });
+        if (now - state.lastHostHeartbeatAt > 20000) {
+          toast("Встреча завершена");
+          cleanup();
+        }
+      }
+    }, 5000);
+  }
+
   function showMeeting(code) {
     homeView.classList.add("hidden");
     meetingView.classList.remove("hidden");
@@ -851,6 +897,7 @@
     $("#profileAvatar").innerHTML = avatarMarkup(state.avatar);
     $("#homeProfileAvatar").innerHTML = avatarMarkup(state.avatar);
     state.startTime = Date.now();
+    startPresenceMonitor();
     startConnectionQualityMonitor();
     state.participants.set("local", { name: getName(), avatar: state.avatar, stream: state.screenOn ? getOutgoingStream() : state.localStream, local: true, isAdmin: state.isHost, joinedAt: state.localJoinedAt, micOn: state.micOn, cameraOn: state.cameraOn, screenOn: state.screenOn });
     if (state.localStream) startSpeakerMeter("local", state.localStream);
@@ -1169,10 +1216,15 @@
     state.dataConnections.set(connection.peer, connection);
     connection.on("data", (message) => handleMessage(connection.peer, message));
     connection.on("close", () => {
+      if (state.dataConnections.get(connection.peer) !== connection) return;
       state.dataConnections.delete(connection.peer);
       if (state.isHost) {
         const pendingLeave = state.pendingLeaveEvents.get(connection.peer);
         state.pendingLeaveEvents.delete(connection.peer);
+        if (pendingLeave?.silent) {
+          removeParticipant(connection.peer);
+          return;
+        }
         const participant = state.participants.get(connection.peer);
         const name = pendingLeave?.name || participant?.name || connection.peer;
         broadcast({ type: "member-left", peerId: connection.peer }, connection.peer);
@@ -1190,6 +1242,21 @@
 
   function handleMessage(senderId, message) {
     if (!message || typeof message !== "object") return;
+    if (message.type === "presence") {
+      if (state.isHost) {
+        const participant = state.participants.get(senderId);
+        if (participant) participant.lastSeenAt = Date.now();
+      } else if (senderId === state.hostId) state.lastHostHeartbeatAt = Date.now();
+      return;
+    }
+    if (message.type === "leave" && state.isHost) {
+      const participant = state.participants.get(senderId);
+      if (participant) {
+        state.pendingLeaveEvents.set(senderId, { event: "left", name: participant.name });
+        state.dataConnections.get(senderId)?.close();
+      }
+      return;
+    }
     if (message.type === "room-event") {
       addRoomEvent(message.event, message.name, false);
       return;
@@ -1248,6 +1315,7 @@
           type: "join",
           peerId: state.peer.id,
           clientId: state.clientId,
+          sessionId: state.sessionId,
           joinedAt: state.localJoinedAt,
           name: getName(),
           avatar: state.avatar,
@@ -1267,10 +1335,18 @@
         setTimeout(() => sender?.close(), 150);
         return;
       }
+      const duplicate = Array.from(state.participants.entries()).find(([peerId, person]) => peerId !== senderId && person.clientId === clientId);
+      if (duplicate) {
+        const [oldPeerId] = duplicate;
+        state.pendingLeaveEvents.set(oldPeerId, { silent: true });
+        broadcast({ type: "member-left", peerId: oldPeerId }, oldPeerId);
+        state.dataConnections.get(oldPeerId)?.close();
+        removeParticipant(oldPeerId);
+      }
       const moderation = state.moderationByClient.get(clientId) || { micLocked: false, cameraLocked: false };
-      const members = [{ peerId: state.peer.id, clientId: state.clientId, name: getName(), avatar: state.avatar, micOn: state.micOn, cameraOn: state.cameraOn, screenOn: state.screenOn, isAdmin: true, joinedAt: 0 }];
+      const members = [{ peerId: state.peer.id, clientId: state.clientId, sessionId: state.sessionId, name: getName(), avatar: state.avatar, micOn: state.micOn, cameraOn: state.cameraOn, screenOn: state.screenOn, isAdmin: true, joinedAt: 0 }];
       state.participants.forEach((person, peerId) => {
-        if (peerId !== "local" && peerId !== senderId && peerId !== state.formerAdminId) members.push({ peerId, clientId: person.clientId, name: person.name, avatar: person.avatar || "🌙", micOn: Boolean(person.micOn), cameraOn: Boolean(person.cameraOn), screenOn: Boolean(person.screenOn), isAdmin: Boolean(person.isAdmin), joinedAt: person.joinedAt || Date.now(), moderation: person.moderation || { micLocked: false, cameraLocked: false } });
+        if (peerId !== "local" && peerId !== senderId && peerId !== state.formerAdminId) members.push({ peerId, clientId: person.clientId, sessionId: person.sessionId, name: person.name, avatar: person.avatar || "🌙", micOn: Boolean(person.micOn), cameraOn: Boolean(person.cameraOn), screenOn: Boolean(person.screenOn), isAdmin: Boolean(person.isAdmin), joinedAt: person.joinedAt || Date.now(), moderation: person.moderation || { micLocked: false, cameraLocked: false } });
       });
       if (sender?.open) sender.send({ type: "members", peers: members });
       if (sender?.open) sender.send({ type: "profile", peerId: state.peer.id, name: getName(), avatar: state.avatar });
@@ -1280,12 +1356,14 @@
       if (participant) {
         participant.joinedAt ||= message.joinedAt || Date.now();
         participant.clientId = clientId;
+        participant.sessionId = String(message.sessionId || `${clientId}:${senderId}`);
+        participant.lastSeenAt = Date.now();
         participant.moderation = moderation;
         participant.micOn = Boolean(message.micOn);
         participant.cameraOn = Boolean(message.cameraOn);
         participant.screenOn = Boolean(message.screenOn);
       }
-      broadcast({ type: "member-joined", peerId: senderId, clientId, name: String(message.name || "Учасник").slice(0, 28), avatar: message.avatar || "🌙", micOn: Boolean(message.micOn), cameraOn: Boolean(message.cameraOn), screenOn: Boolean(message.screenOn), joinedAt: participant?.joinedAt, moderation }, senderId);
+      broadcast({ type: "member-joined", peerId: senderId, clientId, sessionId: participant?.sessionId, name: String(message.name || "Учасник").slice(0, 28), avatar: message.avatar || "🌙", micOn: Boolean(message.micOn), cameraOn: Boolean(message.cameraOn), screenOn: Boolean(message.screenOn), joinedAt: participant?.joinedAt, moderation }, senderId);
       updateRoomUI();
       renderTiles();
       if (!message.handoff) addRoomEvent("joined", participant?.name || message.name, true);
@@ -1299,11 +1377,13 @@
           const participant = state.participants.get(person.peerId);
           if (participant) {
             participant.clientId = person.clientId;
+            participant.sessionId = person.sessionId;
             participant.micOn = Boolean(person.micOn);
             participant.cameraOn = Boolean(person.cameraOn);
             participant.screenOn = Boolean(person.screenOn);
             participant.isAdmin = Boolean(person.isAdmin);
             participant.joinedAt = person.joinedAt || 0;
+            participant.lastSeenAt = Date.now();
             participant.moderation = person.moderation || { micLocked: false, cameraLocked: false };
           }
         }
@@ -1317,6 +1397,8 @@
       const participant = state.participants.get(message.peerId);
       if (participant) {
         participant.clientId = message.clientId;
+        participant.sessionId = message.sessionId;
+        participant.lastSeenAt = Date.now();
         participant.micOn = Boolean(message.micOn);
         participant.cameraOn = Boolean(message.cameraOn);
         participant.screenOn = Boolean(message.screenOn);
@@ -1335,9 +1417,11 @@
       const peerId = message.peerId || senderId;
       const participant = state.participants.get(peerId);
       if (participant) {
+        const wasSharingScreen = Boolean(participant.screenOn);
         participant.micOn = Boolean(message.micOn);
         participant.cameraOn = Boolean(message.cameraOn);
         participant.screenOn = Boolean(message.screenOn);
+        if (wasSharingScreen !== participant.screenOn) playUiSound(participant.screenOn ? "screenOn" : "screenOff");
         if (!participant.micOn) setSpeakingIndicator(peerId, false);
         updateRoomUI();
         renderTiles();
@@ -1358,7 +1442,7 @@
       return;
     }
     if (message.type === "profile") {
-      const peerId = message.peerId || senderId;
+      const peerId = state.isHost ? senderId : (message.peerId || senderId);
       if (!state.participants.has(peerId) && peerId !== state.peer.id) addParticipant(peerId, message.name, message.avatar);
       const participant = state.participants.get(peerId);
       if (participant) {
@@ -1410,7 +1494,7 @@
     if (state.peer.id.localeCompare(peerId) < 0) {
       state.mediaReady.then(() => {
         if (!state.peer || state.calls.has(peerId) || !state.participants.has(peerId)) return;
-        const call = state.peer.call(peerId, getOutgoingStream(), { metadata: { name: getName(), avatar: state.avatar } });
+        const call = state.peer.call(peerId, getOutgoingStream());
         if (call) attachMediaCall(call);
       });
     }
@@ -1443,10 +1527,8 @@
     state.calls.set(call.peer, call);
     updateConnectionQuality();
     call.on("stream", (stream) => {
-      const existing = state.participants.get(call.peer) || { name: call.metadata?.name || "Учасник", avatar: call.metadata?.avatar || "🌙" };
+      const existing = state.participants.get(call.peer) || { name: "Участник", avatar: "🌙" };
       existing.stream = stream;
-      existing.name = existing.name === "Учасник" ? (call.metadata?.name || existing.name) : existing.name;
-      existing.avatar = call.metadata?.avatar || existing.avatar || "🌙";
       state.participants.set(call.peer, existing);
       startSpeakerMeter(call.peer, stream);
       renderTiles();
@@ -1779,6 +1861,8 @@
 
   function addRoomEvent(event, name, broadcastEvent = false) {
     const displayName = String(name || translatePhrase("Участник")).slice(0, 28);
+    if (event === "joined") playUiSound("participantJoined");
+    if (["left", "kicked", "banned"].includes(event)) playUiSound("participantLeft");
     addChatMessage({
       id: `${Date.now()}-system-${Math.random().toString(36).slice(2, 7)}`,
       type: "system",
@@ -2132,6 +2216,7 @@
       state.screenTrack = track;
       state.screenAudioTrack = stream.getAudioTracks()[0] || null;
       state.screenOn = true;
+      playUiSound("screenOn");
       const replacements = Array.from(state.calls.values()).map(async (call) => {
         const sender = getVideoSender(call);
         if (sender) await sender.replaceTrack(track);
@@ -2168,6 +2253,7 @@
     state.screenAudioTrack?.stop();
     state.screenAudioTrack = null;
     state.screenOn = false;
+    playUiSound("screenOff");
     const local = state.participants.get("local");
     if (local) local.stream = state.localStream;
     broadcastMediaStatus();
@@ -2319,6 +2405,8 @@
 
   function cleanup(goHome = true) {
     state.isLeaving = false;
+    clearInterval(state.presenceInterval);
+    state.presenceInterval = null;
     if (!meetingView.classList.contains("hidden")) playUiSound("disconnected");
     clearInterval(state.clockInterval);
     clearInterval(state.qualityInterval);
@@ -2628,6 +2716,11 @@
     if (meetingView.classList.contains("hidden") || state.isLeaving) return;
     event.preventDefault();
     event.returnValue = "";
+  });
+  window.addEventListener("pagehide", () => {
+    if (meetingView.classList.contains("hidden") || !state.peer) return;
+    if (state.isHost) broadcast({ type: "room-closed", roomCode: state.roomCode });
+    else state.dataConnections.get(state.hostId)?.send({ type: "leave", sessionId: state.sessionId });
   });
   $("#fullscreenButton").addEventListener("click", toggleFullscreen);
   document.addEventListener("fullscreenchange", updateFullscreenButton);
