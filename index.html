@@ -58,10 +58,15 @@
         </section>
 
         <section class="release-feed" aria-labelledby="releaseTitle">
-          <header class="release-feed-header"><div><p class="eyebrow"><span class="eyebrow-line"></span> DURY / UPDATES</p><h2 id="releaseTitle">Обновления</h2></div><span class="release-feed-count">04</span></header>
+          <header class="release-feed-header"><div><p class="eyebrow"><span class="eyebrow-line"></span> DURY / UPDATES</p><h2 id="releaseTitle">Обновления</h2></div><span class="release-feed-count">05</span></header>
           <div class="release-list" tabindex="0" aria-label="История версий">
             <article class="release-item is-latest">
-              <div class="release-meta"><span class="release-version">v0.4.0</span><time datetime="2026-10-15">15.10.2026</time><span class="release-latest">LATEST</span></div>
+              <div class="release-meta"><span class="release-version">v0.5.0</span><time datetime="2026-10-15">15.10.2026</time><span class="release-latest">LATEST</span></div>
+              <h3>Надёжный обмен аватарами и подтверждение выхода</h3>
+              <p>Фото профиля передаётся участникам комнаты, а выход из конференции подтверждается отдельным окном.</p>
+            </article>
+            <article class="release-item">
+              <div class="release-meta"><span class="release-version">v0.4.0</span><time datetime="2026-10-15">15.10.2026</time></div>
               <h3>Управление встречей</h3>
               <p>Корона администратора, передача роли, модерация участников и события группы в чате.</p>
             </article>
@@ -180,6 +185,13 @@
         <div class="avatar-upload-row"><label class="avatar-upload" for="avatarInput"><span class="avatar-upload-preview" id="avatarPreview">🌙</span><span class="avatar-upload-copy"><strong>Завантажити зображення</strong><small>JPG, PNG або WebP · до 5 МБ</small></span><i data-lucide="image-plus"></i></label><input class="visually-hidden" id="avatarInput" type="file" accept="image/*" aria-label="Завантажити фото профілю" /><button class="icon-button avatar-reset" id="resetAvatar" type="button" title="Повернути аватар за замовчуванням" aria-label="Повернути аватар за замовчуванням"><i data-lucide="rotate-ccw"></i></button></div>
         <div class="profile-shortcuts"><button class="profile-setting-link" id="profileAudioSettings" type="button"><i data-lucide="audio-lines"></i><span>Микрофон и наушники</span><i data-lucide="arrow-up-right"></i></button><button class="profile-setting-link" id="profileCameraSettings" type="button"><i data-lucide="camera"></i><span>Камера и фон</span><i data-lucide="arrow-up-right"></i></button></div>
         <button type="button" class="primary-button profile-save-button" id="saveProfile">Сохранить</button>
+      </section>
+    </div>
+    <div class="modal-backdrop hidden" id="leaveConfirmModal" role="dialog" aria-modal="true" aria-labelledby="leaveConfirmTitle" aria-describedby="leaveConfirmCopy">
+      <section class="effects-panel leave-confirm-panel">
+        <div class="panel-heading"><div><h2 id="leaveConfirmTitle">Вы действительно хотите покинуть конференцию?</h2></div><button class="icon-button" type="button" id="stayInMeeting" aria-label="Остаться"><i data-lucide="x"></i></button></div>
+        <p class="leave-confirm-copy" id="leaveConfirmCopy">Вы сможете присоединиться снова по ссылке или коду встречи.</p>
+        <div class="leave-confirm-actions"><button class="leave-stay-button" type="button" id="stayInMeetingAction">Остаться</button><button class="primary-button" type="button" id="confirmLeaveMeeting"><i data-lucide="phone-off"></i><span>Покинуть</span></button></div>
       </section>
     </div>
     <div class="modal-backdrop hidden" id="audioSettingsModal" role="dialog" aria-modal="true" aria-labelledby="audioSettingsTitle">

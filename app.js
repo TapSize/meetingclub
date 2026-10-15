@@ -71,6 +71,8 @@
       bannedClientIds: new Set(),
       moderationByClient: new Map(),
       pendingLeaveEvents: new Map(),
+      leavePromptOpen: false,
+      isLeaving: false,
   };
 
   const phraseTranslations = [
@@ -146,6 +148,11 @@
     ["КОД", "КОД", "CODE"], ["Ваша встреча", "Ваша зустріч", "Your meeting"],
     ["Скопировать приглашение", "Скопіювати запрошення", "Copy invite"], ["Открыть чат", "Відкрити чат", "Open chat"],
     ["Выйти из встречи", "Вийти із зустрічі", "Leave meeting"], ["Завершить встречу", "Завершити зустріч", "End meeting"],
+    ["Вы действительно хотите покинуть конференцию?", "Ви справді хочете залишити конференцію?", "Are you sure you want to leave the meeting?"],
+    ["Остаться", "Залишитися", "Stay"], ["Покинуть", "Залишити", "Leave"],
+    ["Вы сможете присоединиться снова по ссылке или коду встречи.", "Ви зможете приєднатися знову за посиланням або кодом зустрічі.", "You can rejoin using the meeting link or code."],
+    ["Надёжный обмен аватарами и подтверждение выхода", "Надійний обмін аватарами та підтвердження виходу", "Reliable avatar sharing and leave confirmation"],
+    ["Фото профиля передаётся участникам комнаты, а выход из конференции подтверждается отдельным окном.", "Фото профілю передається учасникам кімнати, а вихід із конференції підтверджується окремим вікном.", "Profile photos are shared with room participants, and leaving the meeting requires confirmation."],
     ["На весь экран", "На весь екран", "Fullscreen"], ["Выйти из полного экрана", "Вийти з повного екрана", "Exit fullscreen"],
     ["Показать экран", "Показати екран", "Share screen"], ["Настройки звука", "Налаштування звуку", "Audio settings"],
     ["Источник камеры", "Джерело камери", "Camera input"], ["Источник видео", "Джерело відео", "Video input"],
@@ -408,7 +415,7 @@
 
   function normalizeAvatar(value) {
     if (typeof value !== "string") return "";
-    if (/^data:image\/jpeg;base64,[A-Za-z0-9+/]+={0,2}$/.test(value) && value.length <= 60000) return value;
+    if (/^data:image\/jpeg;base64,[A-Za-z0-9+/]+={0,2}$/.test(value) && value.length <= 24000) return value;
     return value.length <= 8 ? value : "";
   }
 
@@ -436,11 +443,20 @@
       const image = await createImageBitmap(file);
       const side = Math.min(image.width, image.height);
       const canvas = document.createElement("canvas");
-      canvas.width = 128;
-      canvas.height = 128;
-      canvas.getContext("2d").drawImage(image, (image.width - side) / 2, (image.height - side) / 2, side, side, 0, 0, 128, 128);
+      for (const size of [128, 96, 64]) {
+        canvas.width = size;
+        canvas.height = size;
+        canvas.getContext("2d").drawImage(image, (image.width - side) / 2, (image.height - side) / 2, side, side, 0, 0, size, size);
+        for (const quality of [0.68, 0.52, 0.38]) {
+          const avatar = canvas.toDataURL("image/jpeg", quality);
+          if (avatar.length <= 24000) {
+            image.close();
+            return avatar;
+          }
+        }
+      }
       image.close();
-      return canvas.toDataURL("image/jpeg", 0.78);
+      return "";
     } catch (error) {
       console.error(error);
       toast("Не вдалося відкрити це зображення.");
@@ -2173,6 +2189,58 @@
     }
   }
 
+  function askLeaveConfirmation() {
+    const modal = $("#leaveConfirmModal");
+    const stayButton = $("#stayInMeetingAction");
+    const closeButton = $("#stayInMeeting");
+    const leaveButton = $("#confirmLeaveMeeting");
+    const previousFocus = document.activeElement;
+    state.leavePromptOpen = true;
+    modal.classList.remove("hidden");
+    refreshIcons();
+
+    return new Promise((resolve) => {
+      const finish = (confirmed) => {
+        state.leavePromptOpen = false;
+        modal.classList.add("hidden");
+        stayButton.onclick = null;
+        closeButton.onclick = null;
+        leaveButton.onclick = null;
+        modal.onclick = null;
+        document.removeEventListener("keydown", onKeyDown);
+        if (previousFocus instanceof HTMLElement) previousFocus.focus();
+        resolve(confirmed);
+      };
+      const onKeyDown = (event) => {
+        if (event.key === "Escape") finish(false);
+        if (event.key === "Tab") {
+          const focusable = [closeButton, stayButton, leaveButton];
+          const currentIndex = focusable.indexOf(document.activeElement);
+          const nextIndex = event.shiftKey
+            ? (currentIndex <= 0 ? focusable.length - 1 : currentIndex - 1)
+            : (currentIndex === focusable.length - 1 ? 0 : currentIndex + 1);
+          event.preventDefault();
+          focusable[nextIndex].focus();
+        }
+      };
+      stayButton.onclick = () => finish(false);
+      closeButton.onclick = () => finish(false);
+      leaveButton.onclick = () => finish(true);
+      modal.onclick = (event) => {
+        if (event.target === modal) finish(false);
+      };
+      document.addEventListener("keydown", onKeyDown);
+      leaveButton.focus();
+    });
+  }
+
+  async function requestLeaveMeeting() {
+    if (meetingView.classList.contains("hidden") || state.leavePromptOpen || state.isLeaving) return;
+    if (!await askLeaveConfirmation()) return;
+    state.isLeaving = true;
+    await leaveMeeting();
+  }
+
   async function leaveMeeting() {
     if (!state.isHost) return cleanup();
     const successor = Array.from(state.participants.entries())
@@ -2201,6 +2269,7 @@
   }
 
   function cleanup(goHome = true) {
+    state.isLeaving = false;
     if (!meetingView.classList.contains("hidden")) playUiSound("disconnected");
     clearInterval(state.clockInterval);
     clearInterval(state.qualityInterval);
@@ -2467,9 +2536,19 @@
   $("#copyInviteTop").addEventListener("click", copyInvite);
   $("#copyInviteEmpty").addEventListener("click", copyInvite);
   $("#copyRoomCode").addEventListener("click", copyRoomCode);
-  $("#leaveButton").addEventListener("click", leaveMeeting);
-  $("#leaveTop").addEventListener("click", leaveMeeting);
-  $("#homeLink").addEventListener("click", (event) => { event.preventDefault(); leaveMeeting(); });
+  $("#leaveButton").addEventListener("click", requestLeaveMeeting);
+  $("#leaveTop").addEventListener("click", requestLeaveMeeting);
+  $("#homeLink").addEventListener("click", (event) => { event.preventDefault(); requestLeaveMeeting(); });
+  window.addEventListener("popstate", () => {
+    if (meetingView.classList.contains("hidden") || state.isLeaving) return;
+    history.pushState({}, "", location.href);
+    requestLeaveMeeting();
+  });
+  window.addEventListener("beforeunload", (event) => {
+    if (meetingView.classList.contains("hidden") || state.isLeaving) return;
+    event.preventDefault();
+    event.returnValue = "";
+  });
   $("#fullscreenButton").addEventListener("click", toggleFullscreen);
   document.addEventListener("fullscreenchange", updateFullscreenButton);
 

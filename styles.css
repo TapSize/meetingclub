@@ -1128,6 +1128,16 @@ body:not([data-theme="night"]) .home-action-card .primary-button { background: v
 .copy-room-code:hover, .copy-room-code.is-copied { border-color: var(--loft-accent); color: var(--loft-accent); }
 .meeting-view .rail-logo { width: 46px; height: 28px; overflow: hidden; border-radius: 5px; background: var(--loft-raised); }
 .meeting-view .rail-logo img { width: 58px; max-width: none; height: auto; transform: translateX(-9px); }
+.leave-confirm-panel { width: min(100%, 390px); border-radius: 6px; }
+.leave-confirm-panel .panel-heading { align-items: center; gap: 16px; }
+.leave-confirm-panel .panel-heading h2 { max-width: 290px; font-size: 18px; line-height: 1.4; }
+.leave-confirm-copy { margin: 12px 0 22px; color: var(--loft-muted); font-size: 12px; line-height: 1.6; }
+.leave-confirm-actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 9px; }
+.leave-confirm-actions button { min-height: 42px; padding: 0 14px; border: 1px solid var(--loft-line); border-radius: 5px; font: 600 12px var(--sans); cursor: pointer; }
+.leave-confirm-actions .leave-stay-button { background: var(--loft-raised); color: var(--loft-ink); }
+.leave-confirm-actions .leave-stay-button:hover { border-color: var(--loft-accent); }
+.leave-confirm-actions .primary-button { display: inline-flex; align-items: center; gap: 8px; }
+.leave-confirm-actions .primary-button svg { width: 15px; height: 15px; }
 @media (max-width: 760px) {
   .home-brand { width: 100%; }
   .home-brand img { width: 74px; max-width: none; height: auto; transform: translateX(-12px); }
@@ -1136,4 +1146,7 @@ body:not([data-theme="night"]) .home-action-card .primary-button { background: v
   .copy-room-code { min-height: 28px; padding-inline: 7px; font-size: 10px; }
   .meeting-view .rail-logo { width: 44px; height: 25px; }
   .meeting-view .rail-logo img { width: 54px; transform: translateX(-8px); }
+  .leave-confirm-panel { padding: 20px; }
+  .leave-confirm-actions { justify-content: stretch; }
+  .leave-confirm-actions button { flex: 1; justify-content: center; }
 }
