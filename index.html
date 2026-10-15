@@ -62,8 +62,8 @@
           <div class="release-list" tabindex="0" aria-label="История версий">
             <article class="release-item is-latest">
               <div class="release-meta"><span class="release-version">v0.5.0</span><time datetime="2026-10-15">15.10.2026</time><span class="release-latest">LATEST</span></div>
-              <h3>Надёжный обмен аватарами и подтверждение выхода</h3>
-              <p>Фото профиля передаётся участникам комнаты, а выход из конференции подтверждается отдельным окном.</p>
+              <h3>Камера, чат и удобный выход</h3>
+              <p>Интенсивность размытия, смайлики и реакции в чате, общий показ аватаров и подтверждение выхода.</p>
             </article>
             <article class="release-item">
               <div class="release-meta"><span class="release-version">v0.4.0</span><time datetime="2026-10-15">15.10.2026</time></div>
@@ -139,7 +139,7 @@
             <header class="call-panel-header"><h2 id="callPanelTitle">Чат</h2><button class="icon-button" id="closeCallPanel" title="Закрыть чат" aria-label="Закрыть чат"><i data-lucide="x"></i></button></header>
             <section id="chatPanel" class="chat-panel hidden" aria-label="Чат зустрічі">
               <div id="chatMessages" class="chat-messages" aria-live="polite"><div class="chat-empty"><i data-lucide="messages-square"></i><span>Почніть розмову тут</span><small>Повідомлення бачать усі в кімнаті</small></div></div>
-              <form id="chatForm" class="chat-form"><label><span class="visually-hidden">Ваше повідомлення</span><input id="chatInput" type="text" maxlength="500" autocomplete="off" placeholder="Напиши щось…" /></label><button type="submit" aria-label="Надіслати повідомлення" title="Надіслати"><i data-lucide="arrow-up"></i></button></form>
+              <form id="chatForm" class="chat-form"><div class="chat-emoji-picker hidden" id="chatEmojiPicker" role="group" aria-label="Выбрать смайлик"><button type="button" data-emoji="😀">😀</button><button type="button" data-emoji="😂">😂</button><button type="button" data-emoji="🥰">🥰</button><button type="button" data-emoji="😍">😍</button><button type="button" data-emoji="😮">😮</button><button type="button" data-emoji="😢">😢</button><button type="button" data-emoji="👍">👍</button><button type="button" data-emoji="👏">👏</button><button type="button" data-emoji="🙏">🙏</button><button type="button" data-emoji="🔥">🔥</button><button type="button" data-emoji="❤️">❤️</button><button type="button" data-emoji="🎉">🎉</button></div><label><span class="visually-hidden">Ваше повідомлення</span><input id="chatInput" type="text" maxlength="500" autocomplete="off" placeholder="Напиши щось…" /></label><button class="chat-emoji-toggle" id="chatEmojiToggle" type="button" aria-label="Выбрать смайлик" title="Выбрать смайлик" aria-expanded="false"><i data-lucide="smile"></i></button><button type="submit" aria-label="Надіслати повідомлення" title="Надіслати"><i data-lucide="arrow-up"></i></button></form>
             </section>
           </aside>
         </div>
@@ -173,6 +173,7 @@
         <label class="device-field"><span><i data-lucide="camera"></i> Камера</span><select id="cameraInputSelect" aria-label="Источник видео"><option value="">Системная по умолчанию</option></select></label>
         <label class="device-field"><span><i data-lucide="scan"></i> Разрешение</span><select id="cameraResolutionSelect" aria-label="Разрешение видео"><option value="480">480p</option><option value="720">720p</option><option value="1080">1080p</option></select></label>
         <label class="device-field"><span><i data-lucide="image"></i> Фон камеры</span><select id="cameraBackgroundSelect" aria-label="Фон камеры"><option value="none">Без фона</option><option value="blur">Размытие</option><option value="image">Изображение</option></select></label>
+        <label class="range-row camera-blur-field hidden" id="cameraBlurField"><span>Интенсивность размытия</span><input id="cameraBlurStrength" type="range" min="0" max="100" value="62" aria-label="Интенсивность размытия" /><span class="range-value" id="cameraBlurValue">62%</span></label>
         <label class="background-image-field hidden" id="backgroundImageField"><span>Изображение для фона</span><input id="backgroundImageInput" type="file" accept="image/*" /><small id="backgroundImageName">Изображение не выбрано</small></label>
         <p class="device-note" id="cameraSettingsNote" role="status"></p>
       </section>

@@ -27,6 +27,7 @@
     cameraSettingsPending: false,
     cameraBackgroundMode: localStorage.getItem("mymeet-camera-background-mode") || "none",
     cameraBackgroundImage: localStorage.getItem("mymeet-camera-background-image") || "",
+    cameraBlurStrength: Math.min(100, Math.max(0, Number(localStorage.getItem("mymeet-camera-blur-strength") ?? 62))),
     cameraProcessor: null,
     segmentationLoad: null,
     audioInputId: localStorage.getItem("mymeet-audio-input") || "",
@@ -124,6 +125,7 @@
     ["Изображение включится при активной камере.", "Зображення ввімкнеться разом із камерою.", "Image starts when camera is on."],
     ["Сначала загрузите изображение для фона.", "Спочатку завантажте зображення для тла.", "Upload a background image first."],
     ["Размытие включено", "Розмиття ввімкнено", "Background blur enabled"],
+    ["Интенсивность размытия", "Інтенсивність розмиття", "Blur intensity"],
     ["Фоновое изображение включено", "Фонове зображення ввімкнено", "Background image enabled"],
     ["Не удалось запустить фон. Проверьте интернет-соединение.", "Не вдалося запустити тло. Перевірте з’єднання з інтернетом.", "Could not start background. Check your internet connection."],
     ["Фон камеры недоступен; используется обычное видео.", "Тло камери недоступне; використовується звичайне відео.", "Camera background unavailable; using original video."],
@@ -141,6 +143,7 @@
     ["Встреча завершена", "Зустріч завершено", "Meeting ended"],
     ["Начните разговор", "Почніть розмову", "Start a conversation"], ["Сообщения видны всем в комнате", "Повідомлення бачать усі в кімнаті", "Messages are visible to everyone in the room"],
     ["Напишите сообщение…", "Напишіть повідомлення…", "Write a message…"], ["Отправить сообщение", "Надіслати повідомлення", "Send message"],
+    ["Выбрать смайлик", "Вибрати смайлик", "Choose an emoji"], ["Поставить реакцию", "Поставити реакцію", "Add reaction"],
     ["Изменить имя", "Змінити ім’я", "Change name"], ["Язык интерфейса", "Мова інтерфейсу", "Interface language"],
     ["Выбери микрофон и устройство для звука собеседников.", "Виберіть мікрофон і пристрій для звуку співрозмовників.", "Choose a microphone and an output for participant audio."],
     ["Закрыть", "Закрити", "Close"], ["Закрыть чат", "Закрити чат", "Close chat"], ["Закрыть панель", "Закрити панель", "Close panel"],
@@ -151,8 +154,8 @@
     ["Вы действительно хотите покинуть конференцию?", "Ви справді хочете залишити конференцію?", "Are you sure you want to leave the meeting?"],
     ["Остаться", "Залишитися", "Stay"], ["Покинуть", "Залишити", "Leave"],
     ["Вы сможете присоединиться снова по ссылке или коду встречи.", "Ви зможете приєднатися знову за посиланням або кодом зустрічі.", "You can rejoin using the meeting link or code."],
-    ["Надёжный обмен аватарами и подтверждение выхода", "Надійний обмін аватарами та підтвердження виходу", "Reliable avatar sharing and leave confirmation"],
-    ["Фото профиля передаётся участникам комнаты, а выход из конференции подтверждается отдельным окном.", "Фото профілю передається учасникам кімнати, а вихід із конференції підтверджується окремим вікном.", "Profile photos are shared with room participants, and leaving the meeting requires confirmation."],
+    ["Камера, чат и удобный выход", "Камера, чат і зручний вихід", "Camera, chat and a smoother exit"],
+    ["Интенсивность размытия, смайлики и реакции в чате, общий показ аватаров и подтверждение выхода.", "Інтенсивність розмиття, смайлики й реакції в чаті, спільний показ аватарів і підтвердження виходу.", "Blur intensity, chat emojis and reactions, shared avatars, and leave confirmation."],
     ["На весь экран", "На весь екран", "Fullscreen"], ["Выйти из полного экрана", "Вийти з повного екрана", "Exit fullscreen"],
     ["Показать экран", "Показати екран", "Share screen"], ["Настройки звука", "Налаштування звуку", "Audio settings"],
     ["Источник камеры", "Джерело камери", "Camera input"], ["Источник видео", "Джерело відео", "Video input"],
@@ -558,7 +561,7 @@
         const height = backgroundImage.height * scale;
         context.drawImage(backgroundImage, (canvas.width - width) / 2, (canvas.height - height) / 2, width, height);
       } else {
-        context.filter = "blur(20px)";
+        context.filter = `blur(${Math.round(state.cameraBlurStrength * 0.32)}px)`;
         context.drawImage(results.image, -16, -16, canvas.width + 32, canvas.height + 32);
         context.filter = "none";
       }
@@ -995,6 +998,9 @@
       note.textContent = notes.join(" ");
       $("#cameraResolutionSelect").value = String(state.cameraResolution);
       $("#cameraBackgroundSelect").value = state.cameraBackgroundMode;
+      $("#cameraBlurField").classList.toggle("hidden", state.cameraBackgroundMode !== "blur");
+      $("#cameraBlurStrength").value = String(state.cameraBlurStrength);
+      $("#cameraBlurValue").textContent = `${state.cameraBlurStrength}%`;
       $("#backgroundImageField").classList.toggle("hidden", state.cameraBackgroundMode !== "image");
       $("#backgroundImageName").textContent = state.cameraBackgroundImage ? "Сохранённое изображение" : "Изображение не выбрано";
       $("#cameraSettingsNote").textContent = state.cameraBackgroundMode === "none" ? "Оригинальный фон" : state.cameraBackgroundMode === "blur" ? "Размытие включится при активной камере." : "Изображение включится при активной камере.";
@@ -1086,6 +1092,7 @@
     state.cameraBackgroundMode = mode;
     localStorage.setItem("mymeet-camera-background-mode", mode);
     $("#backgroundImageField").classList.toggle("hidden", mode !== "image");
+    $("#cameraBlurField").classList.toggle("hidden", mode !== "blur");
     if (mode === "image" && !state.cameraBackgroundImage) {
       $("#cameraSettingsNote").textContent = "Сначала загрузите изображение для фона.";
       $("#backgroundImageInput").click();
@@ -1093,6 +1100,12 @@
     }
     if (state.localStream && state.cameraOn && state.rawCameraTrack) await replaceOutgoingCameraTrack(state.rawCameraTrack);
     else $("#cameraSettingsNote").textContent = mode === "none" ? "Оригинальный фон" : "Фон включится вместе с камерой";
+  }
+
+  function updateCameraBlurStrength(value) {
+    state.cameraBlurStrength = Math.min(100, Math.max(0, Number(value)));
+    localStorage.setItem("mymeet-camera-blur-strength", String(state.cameraBlurStrength));
+    $("#cameraBlurValue").textContent = `${state.cameraBlurStrength}%`;
   }
 
   async function changeAudioInput(deviceId) {
@@ -1357,12 +1370,22 @@
       if (state.isHost) broadcast({ ...message, peerId: senderId }, senderId);
       return;
     }
+    if (message.type === "chat-reaction") {
+      const messageId = String(message.messageId || "").slice(0, 128);
+      const emoji = ["👍", "❤️", "😂", "😮"].includes(message.emoji) ? message.emoji : "";
+      if (!messageId || !emoji) return;
+      const actorId = state.isHost ? senderId : String(message.actorId || senderId);
+      const active = Boolean(message.active);
+      applyChatReaction(messageId, emoji, actorId, active);
+      if (state.isHost) broadcast({ type: "chat-reaction", messageId, emoji, active, actorId: senderId }, senderId);
+      return;
+    }
     if (message.type === "chat") {
       const participant = state.participants.get(senderId);
       const text = String(message.text || "").trim().slice(0, 500);
       if (text) {
         addChatMessage({
-          id: `${Date.now()}-${senderId}`,
+          id: String(message.messageId || `${Date.now()}-${senderId}`).slice(0, 128),
           name: String(participant?.name || message.name || "Учасник").slice(0, 28),
           avatar: participant?.avatar || message.avatar || "🌙",
           text,
@@ -1728,6 +1751,7 @@
 
   function addChatMessage(message) {
     message.avatar = normalizeAvatar(message.avatar) || "🌙";
+    message.reactions ||= new Map();
     state.messages.push(message);
     renderChat();
     if (state.openPanel !== "chat" && !message.own) {
@@ -1774,10 +1798,35 @@
     } else {
       container.innerHTML = state.messages.map((message) => message.system
         ? `<div class="chat-system-message"><span>${escapeHTML(message.text)}</span><time>${escapeHTML(message.time)}</time></div>`
-        : `<article class="chat-message ${message.own ? "chat-message-own" : ""}"><span class="person-avatar">${avatarMarkup(message.avatar)}</span><div><div class="chat-message-meta"><strong>${escapeHTML(message.name)}</strong><time>${escapeHTML(message.time)}</time></div><p>${escapeHTML(message.text)}</p></div></article>`).join("");
+        : `<article class="chat-message ${message.own ? "chat-message-own" : ""}"><span class="person-avatar">${avatarMarkup(message.avatar)}</span><div class="chat-message-content"><div class="chat-message-meta"><strong>${escapeHTML(message.name)}</strong><time>${escapeHTML(message.time)}</time></div><p>${escapeHTML(message.text)}</p><div class="chat-reactions">${["👍", "❤️", "😂", "😮"].map((emoji) => {
+          const reactors = message.reactions?.get(emoji) || new Set();
+          const selected = reactors.has(state.peer?.id);
+          const label = `${translatePhrase("Поставить реакцию")} ${emoji}`;
+          return `<button type="button" class="chat-reaction${selected ? " is-selected" : ""}" data-react="${emoji}" data-message-id="${escapeHTML(message.id)}" aria-label="${escapeHTML(label)}" aria-pressed="${selected}">${emoji}${reactors.size ? `<span>${reactors.size}</span>` : ""}</button>`;
+        }).join("")}</div></div></article>`).join("");
       container.scrollTop = container.scrollHeight;
     }
     refreshIcons();
+  }
+
+  function applyChatReaction(messageId, emoji, actorId, active) {
+    const message = state.messages.find((item) => item.id === messageId && !item.system);
+    if (!message) return;
+    message.reactions ||= new Map();
+    const reactors = message.reactions.get(emoji) || new Set();
+    if (active) reactors.add(actorId);
+    else reactors.delete(actorId);
+    if (reactors.size) message.reactions.set(emoji, reactors);
+    else message.reactions.delete(emoji);
+    renderChat();
+  }
+
+  function toggleChatReaction(messageId, emoji) {
+    const message = state.messages.find((item) => item.id === messageId && !item.system);
+    if (!message || !state.peer?.id) return;
+    const active = !message.reactions?.get(emoji)?.has(state.peer.id);
+    applyChatReaction(messageId, emoji, state.peer.id, active);
+    broadcast({ type: "chat-reaction", messageId, emoji, active, actorId: state.peer.id });
   }
 
   function openCallPanel(panel) {
@@ -2444,15 +2493,45 @@
     if (button.dataset.layout) button.addEventListener("click", () => setLayout(button.dataset.layout));
   });
   $("#freeLayoutButton").addEventListener("click", () => setFreeLayout(!stage.classList.contains("free-layout")));
+  $("#chatEmojiToggle").addEventListener("click", () => {
+    const picker = $("#chatEmojiPicker");
+    const isOpen = picker.classList.toggle("hidden");
+    $("#chatEmojiToggle").setAttribute("aria-expanded", String(!isOpen));
+  });
+  $("#chatEmojiPicker").addEventListener("click", (event) => {
+    const button = event.target.closest("[data-emoji]");
+    if (!button) return;
+    const input = $("#chatInput");
+    const start = input.selectionStart;
+    const end = input.selectionEnd;
+    input.value = `${input.value.slice(0, start)}${button.dataset.emoji}${input.value.slice(end)}`.slice(0, input.maxLength);
+    const cursor = Math.min(start + button.dataset.emoji.length, input.maxLength);
+    input.setSelectionRange(cursor, cursor);
+    input.focus();
+    $("#chatEmojiPicker").classList.add("hidden");
+    $("#chatEmojiToggle").setAttribute("aria-expanded", "false");
+  });
+  $("#chatMessages").addEventListener("click", (event) => {
+    const button = event.target.closest("[data-react]");
+    if (button) toggleChatReaction(button.dataset.messageId, button.dataset.react);
+  });
+  document.addEventListener("click", (event) => {
+    if (event.target.closest("#chatForm")) return;
+    $("#chatEmojiPicker").classList.add("hidden");
+    $("#chatEmojiToggle").setAttribute("aria-expanded", "false");
+  });
   $("#chatForm").addEventListener("submit", (event) => {
     event.preventDefault();
     const input = $("#chatInput");
     const text = input.value.trim().slice(0, 500);
     if (!text) return;
-    const message = { type: "chat", text, name: getName(), avatar: state.avatar };
-    addChatMessage({ ...message, id: `${Date.now()}-local`, time: new Date().toLocaleTimeString(languageLocales[state.language], { hour: "2-digit", minute: "2-digit" }), own: true });
+    const messageId = `${Date.now()}-${state.peer?.id || state.clientId}-${Math.random().toString(36).slice(2, 8)}`;
+    const message = { type: "chat", messageId, text, name: getName(), avatar: state.avatar };
+    addChatMessage({ ...message, id: messageId, time: new Date().toLocaleTimeString(languageLocales[state.language], { hour: "2-digit", minute: "2-digit" }), own: true });
     broadcast(message);
     input.value = "";
+    $("#chatEmojiPicker").classList.add("hidden");
+    $("#chatEmojiToggle").setAttribute("aria-expanded", "false");
     input.focus();
   });
   $("#micButton").addEventListener("click", toggleMic);
@@ -2474,6 +2553,7 @@
   $("#cameraInputSelect").addEventListener("change", (event) => updateCameraSettings(event.target.value, state.cameraResolution));
   $("#cameraResolutionSelect").addEventListener("change", (event) => updateCameraSettings(state.cameraInputId, Number(event.target.value)));
   $("#cameraBackgroundSelect").addEventListener("change", (event) => updateCameraBackground(event.target.value));
+  $("#cameraBlurStrength").addEventListener("input", (event) => updateCameraBlurStrength(event.target.value));
   $("#backgroundImageInput").addEventListener("change", async (event) => {
     const file = event.target.files?.[0];
     event.target.value = "";

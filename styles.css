@@ -1138,6 +1138,19 @@ body:not([data-theme="night"]) .home-action-card .primary-button { background: v
 .leave-confirm-actions .leave-stay-button:hover { border-color: var(--loft-accent); }
 .leave-confirm-actions .primary-button { display: inline-flex; align-items: center; gap: 8px; }
 .leave-confirm-actions .primary-button svg { width: 15px; height: 15px; }
+.camera-blur-field { margin-bottom: 4px; }
+.chat-form { position: relative; }
+.chat-form > .chat-emoji-toggle { flex: 0 0 37px; border: 1px solid var(--loft-line); background: var(--loft-raised); color: var(--loft-muted); }
+.chat-form > .chat-emoji-toggle:hover { border-color: var(--loft-accent); color: var(--loft-accent); }
+.chat-emoji-picker { position: absolute; z-index: 5; right: 52px; bottom: calc(100% + 8px); grid-template-columns: repeat(6, 36px); gap: 3px; padding: 7px; border: 1px solid var(--loft-line); border-radius: 6px; background: var(--loft-panel); box-shadow: 0 8px 24px rgba(20, 18, 17, .2); }
+.chat-emoji-picker:not(.hidden) { display: grid; }
+.chat-emoji-picker button { width: 36px; height: 36px; border: 0; border-radius: 4px; background: transparent; font-size: 19px; cursor: pointer; }
+.chat-emoji-picker button:hover, .chat-emoji-picker button:focus-visible { background: var(--loft-raised); }
+.chat-reactions { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+.chat-reaction { min-width: 27px; height: 23px; display: inline-flex; align-items: center; justify-content: center; gap: 4px; padding: 0 5px; border: 1px solid var(--loft-line); border-radius: 12px; background: var(--loft-raised); color: var(--loft-ink); font-size: 12px; cursor: pointer; }
+.chat-reaction span { color: var(--loft-muted); font: 10px var(--sans); }
+.chat-reaction:hover, .chat-reaction.is-selected { border-color: var(--loft-accent); background: color-mix(in srgb, var(--loft-accent) 14%, var(--loft-raised)); }
+.chat-reaction:focus-visible, .chat-emoji-picker button:focus-visible { outline: 2px solid var(--loft-accent); outline-offset: 1px; }
 @media (max-width: 760px) {
   .home-brand { width: 100%; }
   .home-brand img { width: 74px; max-width: none; height: auto; transform: translateX(-12px); }
