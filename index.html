@@ -6,6 +6,7 @@
     <meta id="themeColor" name="theme-color" content="#181a1c" />
     <meta name="description" content="DURY — видеовстречи" />
     <title>DURY — видеовстречи</title>
+    <link rel="icon" type="image/png" href="src/dury_plate.png" />
     <link rel="stylesheet" href="styles.css" />
     <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js" defer></script>
     <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js" defer></script>
@@ -14,12 +15,16 @@
   <body>
     <main id="homeView" class="home-view" data-home-tab="home">
       <aside class="home-sidebar">
-        <a class="home-brand" href="#" aria-label="DURY — главная"><img src="src/dury_logo.png" alt="" /><span>DURY</span></a>
+        <a class="home-brand" href="#" aria-label="DURY — главная"><img src="src/dury_large_plate.png" alt="DURY" /></a>
         <nav class="home-navigation" aria-label="Главная навигация">
           <a class="home-nav-item is-active" id="homeNav" href="#"><i data-lucide="house"></i><span>Главная</span></a>
           <a class="home-nav-item" id="recentNav" href="#recentMeetings"><i data-lucide="messages-square"></i><span>Недавние</span></a>
-          <button class="home-nav-item" id="profileNav" type="button"><i data-lucide="user-round"></i><span>Профиль</span></button>
         </nav>
+        <div class="home-sidebar-settings" role="group" aria-label="Настройки">
+          <button class="home-nav-item" id="homeProfileSettings" type="button" title="Профиль" aria-label="Профиль"><i data-lucide="user-round"></i><span>Профиль</span></button>
+          <button class="home-nav-item" id="homeAudioSettings" type="button" title="Настройки звука" aria-label="Настройки звука"><i data-lucide="audio-lines"></i><span>Микрофон</span></button>
+          <button class="home-nav-item" id="homeCameraSettings" type="button" title="Настройки камеры" aria-label="Настройки камеры"><i data-lucide="camera"></i><span>Камера</span></button>
+        </div>
         <div class="home-sidebar-footer"><span class="sidebar-status-dot"></span><span>DURY / WEB</span></div>
       </aside>
 
@@ -32,12 +37,7 @@
         <section class="home-main">
           <div class="home-copy">
             <p class="eyebrow"><span class="eyebrow-line"></span> DURY / ROOM</p>
-            <h1>Всегда<br /><span>рядом.</span></h1>
             <p class="intro">Создавайте встречи и подключайтесь по коду.</p>
-          </div>
-          <div class="home-art">
-            <span class="hero-logo-fallback hidden" id="heroLogoFallback">DURY</span>
-            <img class="hero-logo" id="heroLogo" src="src/dury_logo.png" alt="DURY" />
           </div>
         </section>
 
@@ -56,6 +56,32 @@
           </article>
         </section>
 
+        <section class="release-feed" aria-labelledby="releaseTitle">
+          <header class="release-feed-header"><div><p class="eyebrow"><span class="eyebrow-line"></span> DURY / UPDATES</p><h2 id="releaseTitle">Обновления</h2></div><span class="release-feed-count">04</span></header>
+          <div class="release-list" tabindex="0" aria-label="История версий">
+            <article class="release-item is-latest">
+              <div class="release-meta"><span class="release-version">v0.4.0</span><time datetime="2026-10-15">15.10.2026</time><span class="release-latest">LATEST</span></div>
+              <h3>Управление встречей</h3>
+              <p>Корона администратора, передача роли, модерация участников и события группы в чате.</p>
+            </article>
+            <article class="release-item">
+              <div class="release-meta"><span class="release-version">v0.3.0</span><time datetime="2026-10-15">15.10.2026</time></div>
+              <h3>Камера и устройства</h3>
+              <p>Выбор камеры и микрофона, разрешение видео, виртуальный фон, аватар и звуковые сигналы.</p>
+            </article>
+            <article class="release-item">
+              <div class="release-meta"><span class="release-version">v0.2.0</span><time datetime="2026-10-15">15.10.2026</time></div>
+              <h3>Новый интерфейс DURY</h3>
+              <p>Главная и конференция в едином стиле, тёмная и светлая темы, русский, украинский и английский.</p>
+            </article>
+            <article class="release-item">
+              <div class="release-meta"><span class="release-version">v0.1.0</span><time datetime="2026-10-15">15.10.2026</time></div>
+              <h3>Видеовстречи</h3>
+              <p>Комнаты по ссылке и коду, WebRTC-звонки, чат, список участников и демонстрация экрана.</p>
+            </article>
+          </div>
+        </section>
+
         <section class="recent-section" id="recentMeetings" aria-labelledby="recentTitle">
           <header class="recent-heading"><h2 id="recentTitle">Недавние встречи</h2><span id="recentCount">0</span></header>
           <div class="recent-list" id="recentRooms"></div>
@@ -65,10 +91,15 @@
 
     <main id="meetingView" class="meeting-view hidden">
       <nav class="meeting-rail" aria-label="Навигация встречи">
-        <a class="rail-logo" href="#" id="homeLink" aria-label="DURY — главная"><img src="src/dury_logo.png" alt="DURY" /></a>
+        <a class="rail-logo" href="#" id="homeLink" aria-label="DURY — главная"><img src="src/dury_large_plate.png" alt="DURY" /></a>
         <button class="rail-button" id="peopleButton" aria-expanded="true" title="Участники"><i data-lucide="users-round"></i><span class="visually-hidden">Участники</span><b id="peopleCount">1</b></button>
         <button class="rail-button" id="chatButton" aria-expanded="false" title="Чат"><i data-lucide="message-circle"></i><span class="visually-hidden">Чат</span><b id="chatBadge" class="chat-badge hidden">0</b></button>
         <div class="rail-spacer"></div>
+        <div class="rail-settings-group" role="group" aria-label="Настройки">
+          <button class="rail-button" id="meetingAudioSettings" type="button" title="Настройки звука" aria-label="Настройки звука"><i data-lucide="audio-lines"></i></button>
+          <button class="rail-button" id="meetingCameraSettings" type="button" title="Настройки камеры" aria-label="Настройки камеры"><i data-lucide="camera"></i></button>
+          <button class="rail-button" id="meetingProfileSettings" type="button" title="Настройки профиля" aria-label="Настройки профиля"><i data-lucide="user-round"></i></button>
+        </div>
         <button class="icon-button theme-toggle rail-theme" type="button" title="Тёмная тема" aria-label="Тёмная тема"><i data-lucide="moon"></i></button>
       </nav>
       <aside class="meeting-sidebar" id="meetingSidebar" aria-label="Участники встречи">
@@ -83,7 +114,7 @@
       <section class="meeting-content">
         <div class="meeting-workspace" id="meetingWorkspace">
           <div class="stage-column">
-            <div class="stage-heading"><div><p class="eyebrow"><span class="eyebrow-line"></span> DURY / ROOM</p><h1 id="meetingTitle">Встреча</h1></div><div class="stage-clock" id="meetingClock">00:00</div></div>
+            <div class="stage-heading"><div><p class="eyebrow"><span class="eyebrow-line"></span> DURY / ROOM</p><div class="meeting-title-row"><h1 id="meetingTitle">—— ——</h1><button class="copy-room-code" id="copyRoomCode" type="button" title="Скопировать код" aria-label="Скопировать код"><i data-lucide="copy"></i><span>Скопировать</span></button></div></div><div class="stage-clock" id="meetingClock">00:00</div></div>
             <div class="stage-toolbar">
               <div class="layout-picker" role="group" aria-label="Макет камер">
                 <button class="layout-button is-selected" data-layout="grid" title="Сетка" aria-label="Сетка"><i data-lucide="layout-grid"></i></button>
@@ -123,6 +154,11 @@
     <div class="modal-backdrop hidden" id="effectsModal" role="dialog" aria-modal="true" aria-labelledby="effectsTitle">
       <section class="effects-panel">
         <div class="panel-heading"><div><p class="eyebrow">ИЗОБРАЖЕНИЕ</p><h2 id="effectsTitle">Настройки камеры</h2></div><button class="icon-button" id="closeEffects" aria-label="Закрыть"><i data-lucide="x"></i></button></div>
+        <div class="camera-preview" id="cameraPreview">
+          <video id="cameraPreviewVideo" autoplay muted playsinline></video>
+          <div class="camera-preview-placeholder" id="cameraPreviewPlaceholder" role="status"><i data-lucide="video"></i><span id="cameraPreviewMessage">Предпросмотр появится после запуска камеры.</span></div>
+          <span class="camera-preview-badge"><i data-lucide="scan-eye"></i> Предпросмотр</span>
+        </div>
         <label class="effect-toggle mirror-toggle"><span class="mirror-icon"><i data-lucide="flip-horizontal-2"></i></span><span><strong>Зеркальное отображение</strong><small>Только для вас</small></span><input id="mirrorToggle" type="checkbox" /><span class="toggle-track"></span></label>
         <label class="effect-toggle"><span class="effect-swatch" id="effectSwatch"></span><span><strong>Подсветка камеры</strong><small>Цветная рамка на изображении</small></span><input id="glowToggle" type="checkbox" /><span class="toggle-track"></span></label>
         <label class="color-row"><span>Цвет</span><input id="glowColor" type="color" value="#c5683c" aria-label="Цвет подсветки" /></label>

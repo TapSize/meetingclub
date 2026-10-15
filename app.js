@@ -1,12 +1,27 @@
 (() => {
+  function getStableClientId() {
+    const key = "dury-client-id";
+    const existing = localStorage.getItem(key);
+    if (existing) return existing;
+    const bytes = crypto.getRandomValues(new Uint8Array(16));
+    const created = `user-${Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("")}`;
+    localStorage.setItem(key, created);
+    return created;
+  }
+
   const state = {
     peer: null,
     isHost: false,
+    formerAdminId: "",
+    clientId: getStableClientId(),
     roomCode: "",
     hostId: "",
+    localJoinedAt: 0,
     localStream: null,
     cameraTrack: null,
     rawCameraTrack: null,
+    cameraPreviewStream: null,
+    cameraPreviewGeneration: 0,
     cameraInputId: localStorage.getItem("mymeet-camera-input") || "",
     cameraResolution: [480, 720, 1080].includes(Number(localStorage.getItem("mymeet-camera-resolution"))) ? Number(localStorage.getItem("mymeet-camera-resolution")) : 720,
     cameraSettingsPending: false,
@@ -51,20 +66,33 @@
       dragId: null,
       tileSizes: new Map(),
       tilePositions: new Map(),
+      localMutedParticipants: new Set(),
+      localRestrictions: { micLocked: false, cameraLocked: false },
+      bannedClientIds: new Set(),
+      moderationByClient: new Map(),
+      pendingLeaveEvents: new Map(),
   };
 
   const phraseTranslations = [
     ["DURY / ВИДЕОСВЯЗЬ", "DURY / ВІДЕОЗВ’ЯЗОК", "DURY / VIDEO CALLS"],
     ["DURY / НЕДАВНИЕ", "DURY / НЕДАВНІ", "DURY / RECENT"],
     ["DURY / ROOM", "DURY / КІМНАТА", "DURY / ROOM"],
+    ["DURY / UPDATES", "DURY / ОНОВЛЕННЯ", "DURY / UPDATES"],
     ["DURY / WEB", "DURY / WEB", "DURY / WEB"],
+    ["Обновления", "Оновлення", "Updates"], ["История версий", "Історія версій", "Version history"], ["LATEST", "ОСТАННЄ", "LATEST"],
+    ["Управление встречей", "Керування зустріччю", "Meeting controls"], ["Камера и устройства", "Камера та пристрої", "Camera and devices"],
+    ["Новый интерфейс DURY", "Новий інтерфейс DURY", "DURY interface refresh"], ["Видеовстречи", "Відеозустрічі", "Video meetings"],
+    ["Корона администратора, передача роли, модерация участников и события группы в чате.", "Корона адміністратора, передавання ролі, модерація учасників і події групи в чаті.", "Admin crown, role handoff, participant moderation and room events in chat."],
+    ["Выбор камеры и микрофона, разрешение видео, виртуальный фон, аватар и звуковые сигналы.", "Вибір камери й мікрофона, роздільна здатність відео, віртуальне тло, аватар і звукові сигнали.", "Camera and microphone selection, video resolution, virtual backgrounds, avatars and sound cues."],
+    ["Главная и конференция в едином стиле, тёмная и светлая темы, русский, украинский и английский.", "Головна й конференція в єдиному стилі, темна та світла теми, російська, українська й англійська.", "Unified home and meeting UI, light/dark themes, Russian, Ukrainian and English."],
+    ["Комнаты по ссылке и коду, WebRTC-звонки, чат, список участников и демонстрация экрана.", "Кімнати за посиланням і кодом, дзвінки WebRTC, чат, список учасників і демонстрація екрана.", "Rooms by link or code, WebRTC calls, chat, participant list and screen sharing."],
     ["Всегда", "Завжди", "Always"], ["рядом.", "поруч.", "close."],
     ["Создавайте встречи и подключайтесь по коду.", "Створюйте зустрічі та долучайтеся за кодом.", "Create meetings and join with a code."],
     ["Главная", "Головна", "Home"], ["Недавние", "Недавні", "Recent"], ["Профиль", "Профіль", "Profile"],
     ["Новая встреча", "Нова зустріч", "New meeting"], ["Создать комнату", "Створити кімнату", "Create a room"],
     ["Создать встречу", "Створити зустріч", "Create meeting"], ["Войти по коду", "Увійти за кодом", "Join with a code"],
     ["Присоединиться к комнате", "Долучитися до кімнати", "Join a room"], ["Код встречи", "Код зустрічі", "Meeting code"],
-    ["Войти", "Увійти", "Join"], ["Недавние встречи", "Недавні зустрічі", "Recent meetings"],
+    ["Войти", "Увійти", "Join"], ["Скопировать", "Скопіювати", "Copy"], ["Скопировать код", "Скопіювати код", "Copy code"], ["Недавние встречи", "Недавні зустрічі", "Recent meetings"],
     ["Недавних встреч пока нет", "Недавніх зустрічей поки немає", "No recent meetings"],
     ["Встреча", "Зустріч", "Meeting"], ["Встреча создана", "Зустріч створено", "Meeting created"], ["Подключено", "Підключено", "Connected"],
     ["Сетка", "Сітка", "Grid"], ["Активный участник", "Активний учасник", "Active speaker"], ["Лента", "Стрічка", "Filmstrip"],
@@ -73,7 +101,7 @@
     ["Люди", "Люди", "People"], ["На связи", "На зв’язку", "Connected"], ["Это вы", "Це ви", "You"],
     ["Микрофон", "Мікрофон", "Microphone"], ["Камера", "Камера", "Camera"], ["Экран", "Екран", "Screen"],
     ["Эффекты", "Ефекти", "Effects"], ["Выйти", "Вийти", "Leave"], ["Приватно", "Приватно", "Private"],
-    ["Настройки изображения", "Налаштування зображення", "Video settings"], ["Настройки камеры", "Налаштування камери", "Camera settings"],
+    ["Настройки изображения", "Налаштування зображення", "Video settings"], ["Настройки камеры", "Налаштування камери", "Camera settings"], ["Предпросмотр появится после запуска камеры.", "Попередній перегляд з’явиться після запуску камери.", "Camera preview will appear when the camera starts."], ["Предпросмотр камеры недоступен.", "Попередній перегляд камери недоступний.", "Camera preview is unavailable."],
     ["Зеркальное отображение", "Дзеркальне відображення", "Mirror video"], ["Только для вас", "Лише для вас", "Only for you"],
     ["Подсветка камеры", "Підсвічування камери", "Camera glow"], ["Цветная рамка на изображении", "Кольорова рамка на зображенні", "Colored frame around video"],
     ["Цвет", "Колір", "Color"], ["Ширина", "Ширина", "Width"], ["Яркость", "Яскравість", "Brightness"],
@@ -106,7 +134,7 @@
     ["Демонстрация экрана", "Демонстрація екрана", "Screen sharing"],
     ["Качество соединения", "Якість з’єднання", "Connection quality"], ["Качество связи", "Якість зв’язку", "Connection quality"],
     ["Ожидание", "Очікування", "Waiting"], ["Стабильная", "Стабільне", "Stable"], ["Средняя", "Середнє", "Fair"], ["Слабая", "Слабке", "Poor"], ["Подключение", "З’єднання", "Connecting"],
-    ["Гость", "Гість", "Guest"], ["Организатор", "Організатор", "Host"], ["Участник", "Учасник", "Participant"],
+    ["Гость", "Гість", "Guest"], ["Организатор", "Організатор", "Host"], ["Администратор", "Адміністратор", "Administrator"], ["Участник", "Учасник", "Participant"],
     ["Встреча завершена", "Зустріч завершено", "Meeting ended"],
     ["Начните разговор", "Почніть розмову", "Start a conversation"], ["Сообщения видны всем в комнате", "Повідомлення бачать усі в кімнаті", "Messages are visible to everyone in the room"],
     ["Напишите сообщение…", "Напишіть повідомлення…", "Write a message…"], ["Отправить сообщение", "Надіслати повідомлення", "Send message"],
@@ -279,13 +307,6 @@
     });
   });
   translationObserver.observe(document.body, { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ["title", "aria-label", "placeholder"] });
-  const heroLogo = $("#heroLogo");
-  const showHeroLogoFallback = () => {
-    heroLogo.classList.add("hidden");
-    $("#heroLogoFallback").classList.remove("hidden");
-  };
-  heroLogo.addEventListener("error", showHeroLogoFallback);
-  if (heroLogo.complete && !heroLogo.naturalWidth) showHeroLogoFallback();
   function refreshIcons() {
     if (window.lucide) window.lucide.createIcons();
   }
@@ -626,6 +647,28 @@
     renderRecentRooms();
   }
 
+  function restoreRoomModeration(code, bannedClientIds = null, moderationEntries = null) {
+    const bansKey = `dury-room-bans:${code}`;
+    const moderationKey = `dury-room-moderation:${code}`;
+    try {
+      const storedBans = bannedClientIds || JSON.parse(localStorage.getItem(bansKey) || "[]");
+      const storedModeration = moderationEntries || JSON.parse(localStorage.getItem(moderationKey) || "[]");
+      state.bannedClientIds = new Set(Array.isArray(storedBans) ? storedBans.filter((id) => typeof id === "string") : []);
+      state.moderationByClient = new Map(Array.isArray(storedModeration) ? storedModeration.filter((entry) => Array.isArray(entry) && typeof entry[0] === "string") : []);
+      if (bannedClientIds) localStorage.setItem(bansKey, JSON.stringify([...state.bannedClientIds]));
+      if (moderationEntries) localStorage.setItem(moderationKey, JSON.stringify([...state.moderationByClient]));
+    } catch (error) {
+      console.error(error);
+      state.bannedClientIds = new Set();
+      state.moderationByClient = new Map();
+    }
+  }
+
+  function persistRoomModeration() {
+    localStorage.setItem(`dury-room-bans:${state.roomCode}`, JSON.stringify([...state.bannedClientIds]));
+    localStorage.setItem(`dury-room-moderation:${state.roomCode}`, JSON.stringify([...state.moderationByClient]));
+  }
+
   function probeRoom(hostId) {
     return new Promise((resolve) => {
       let probe;
@@ -671,6 +714,7 @@
       return;
     }
     setError("");
+    state.localJoinedAt = Date.now();
     const createButton = $("#createButton");
     createButton.disabled = true;
     createButton.querySelector("span").textContent = isHost ? "Створюємо зустріч…" : "Приєднуємося…";
@@ -681,13 +725,19 @@
       state.isHost = isHost;
       state.roomCode = code;
       state.hostId = hostId;
+      if (isHost) restoreRoomModeration(code);
+      else {
+        state.bannedClientIds = new Set();
+        state.moderationByClient = new Map();
+        state.localRestrictions = { micLocked: false, cameraLocked: false };
+      }
 
       peer.on("open", async () => {
         if (!isHost) {
           const connection = peer.connect(hostId, { reliable: true });
           attachDataConnection(connection);
           connection.on("open", () => {
-            connection.send({ type: "join", peerId: peer.id, name: getName(), avatar: state.avatar });
+            connection.send({ type: "join", peerId: peer.id, clientId: state.clientId, name: getName(), avatar: state.avatar, joinedAt: state.localJoinedAt, micOn: state.micOn, cameraOn: state.cameraOn, screenOn: state.screenOn });
             saveRecentRoom(code, hostId);
             showMeeting(code);
             state.mediaReady = enableMedia();
@@ -749,17 +799,24 @@
     playUiSound("connected");
     $("#roomCodeLabel").textContent = `КОД ${code.match(/.{1,3}/g).join(" ")}`;
     $("#watermarkCode").textContent = code;
-    $("#meetingTitle").textContent = state.isHost ? "Встреча создана" : "Подключено";
+    $("#meetingTitle").textContent = code.match(/.{1,3}/g).join(" ");
     $("#profileName").textContent = getName();
     $("#meetingName").textContent = getName();
     $("#profileAvatar").innerHTML = avatarMarkup(state.avatar);
     $("#homeProfileAvatar").innerHTML = avatarMarkup(state.avatar);
     state.startTime = Date.now();
     startConnectionQualityMonitor();
-    state.participants.set("local", { name: getName(), avatar: state.avatar, stream: state.screenOn ? getOutgoingStream() : state.localStream, local: true, micOn: state.micOn, cameraOn: state.cameraOn, screenOn: state.screenOn });
+    state.participants.set("local", { name: getName(), avatar: state.avatar, stream: state.screenOn ? getOutgoingStream() : state.localStream, local: true, isAdmin: state.isHost, joinedAt: state.localJoinedAt, micOn: state.micOn, cameraOn: state.cameraOn, screenOn: state.screenOn });
     if (state.localStream) startSpeakerMeter("local", state.localStream);
     if (!state.isHost && state.hostId) {
       state.participants.set(state.hostId, { name: "Організатор", avatar: "🌷", stream: null });
+      state.participants.get(state.hostId).isAdmin = true;
+    if (!state.isHost && state.hostId) {
+      const organizer = state.participants.get(state.hostId);
+      organizer.isAdmin = true;
+      organizer.joinedAt = 0;
+    }
+      state.participants.get(state.hostId).joinedAt = 0;
     }
     updateRoomUI();
     renderTiles();
@@ -821,7 +878,10 @@
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ video: getCameraConstraints() });
       videoTrack = stream.getVideoTracks()[0] || null;
-      if (videoTrack) tracks.push(videoTrack);
+      if (videoTrack) {
+        videoTrack.enabled = false;
+        tracks.push(videoTrack);
+      }
     } catch (error) {
       failures.push({ device: "Камера", error });
     }
@@ -836,8 +896,8 @@
     state.localStream = new MediaStream(tracks);
     state.cameraTrack = videoTrack;
     state.rawCameraTrack = videoTrack;
-    state.micOn = Boolean(audioTrack);
-    state.cameraOn = Boolean(videoTrack);
+    state.micOn = Boolean(audioTrack?.enabled);
+    state.cameraOn = false;
     state.participants.set("local", { name: getName(), avatar: state.avatar, stream: state.localStream, local: true, micOn: state.micOn, cameraOn: state.cameraOn, screenOn: state.screenOn });
     startSpeakerMeter("local", state.localStream);
     if (videoTrack && state.cameraBackgroundMode !== "none") await replaceOutgoingCameraTrack(videoTrack);
@@ -955,6 +1015,7 @@
       localStorage.setItem("mymeet-camera-input", deviceId);
       localStorage.setItem("mymeet-camera-resolution", String(resolution));
       $("#cameraSettingsNote").textContent = "Настройки применятся при следующем включении камеры.";
+      await refreshCameraPreview();
       return;
     }
     try {
@@ -1054,8 +1115,13 @@
     connection.on("close", () => {
       state.dataConnections.delete(connection.peer);
       if (state.isHost) {
+        const pendingLeave = state.pendingLeaveEvents.get(connection.peer);
+        state.pendingLeaveEvents.delete(connection.peer);
+        const participant = state.participants.get(connection.peer);
+        const name = pendingLeave?.name || participant?.name || connection.peer;
         broadcast({ type: "member-left", peerId: connection.peer }, connection.peer);
         state.participants.delete(connection.peer);
+        addRoomEvent(pendingLeave?.event || "left", name, true);
         updateRoomUI();
         renderTiles();
       } else if (connection.peer === state.hostId) {
@@ -1068,23 +1134,105 @@
 
   function handleMessage(senderId, message) {
     if (!message || typeof message !== "object") return;
+    if (message.type === "room-event") {
+      addRoomEvent(message.event, message.name, false);
+      return;
+    }
+    if (message.type === "participant-banned" && senderId === state.hostId) {
+      const banned = message.reason === "ban";
+      if (banned) removeRecentRoom(state.roomCode);
+      toast(translatePhrase(banned ? "Администратор запретил вам доступ в эту комнату." : "Администратор удалил вас из комнаты."));
+      cleanup();
+      return;
+    }
+    if (message.type === "moderation-status") {
+      applyModerationStatus(message);
+      return;
+    }
     if (message.type === "room-closed" && senderId === state.hostId) {
       removeRecentRoom(state.roomCode);
       cleanup();
       return;
     }
-    if (state.isHost && message.type === "join") {
-      const members = [{ peerId: state.peer.id, name: getName(), avatar: state.avatar, micOn: state.micOn, cameraOn: state.cameraOn, screenOn: state.screenOn }];
-      state.participants.forEach((person, peerId) => {
-        if (peerId !== "local" && peerId !== senderId) members.push({ peerId, name: person.name, avatar: person.avatar || "🌙", micOn: Boolean(person.micOn), cameraOn: Boolean(person.cameraOn), screenOn: Boolean(person.screenOn) });
+    if (message.type === "admin-transfer") {
+      const previousAdminId = message.previousAdminId || senderId;
+      const newAdminId = message.newAdminId;
+      if (!newAdminId) return;
+      state.formerAdminId = previousAdminId;
+      state.hostId = newAdminId;
+      state.isHost = state.peer?.id === newAdminId;
+      if (state.isHost) {
+        const outgoingAdmin = state.participants.get(previousAdminId);
+        state.pendingLeaveEvents.set(previousAdminId, { event: "left", name: outgoingAdmin?.name || translatePhrase("Администратор") });
+      }
+      if (state.isHost) {
+        restoreRoomModeration(state.roomCode, message.bannedClientIds || [], message.moderationEntries || []);
+        state.moderationByClient.delete(state.clientId);
+        state.localRestrictions = { micLocked: false, cameraLocked: false };
+        const local = state.participants.get("local");
+        if (local) {
+          local.isAdmin = true;
+          local.moderation = { micLocked: false, cameraLocked: false };
+        }
+        persistRoomModeration();
+      }
+      state.participants.forEach((participant, peerId) => {
+        participant.isAdmin = peerId === newAdminId;
       });
-      const sender = state.dataConnections.get(senderId);
-      if (sender?.open) sender.send({ type: "members", peers: members });
-      if (sender?.open) sender.send({ type: "profile", peerId: state.peer.id, name: getName(), avatar: state.avatar });
-      addParticipant(senderId, message.name || "Учасник", message.avatar || "🌙");
-      broadcast({ type: "member-joined", peerId: senderId, name: String(message.name || "Учасник").slice(0, 28), avatar: message.avatar || "🌙", micOn: false, cameraOn: false, screenOn: false }, senderId);
+      const newAdmin = state.participants.get(newAdminId);
+      if (newAdmin) newAdmin.isAdmin = true;
+      saveRecentRoom(state.roomCode, newAdminId);
+      addRoomEvent("admin", message.adminName || newAdmin?.name || translatePhrase("Участник"), false);
       updateRoomUI();
       renderTiles();
+      if (!state.isHost && state.peer && newAdminId !== state.peer.id) {
+        const connection = state.peer.connect(newAdminId, { reliable: true });
+        attachDataConnection(connection);
+        connection.on("open", () => connection.send({
+          type: "join",
+          peerId: state.peer.id,
+          clientId: state.clientId,
+          joinedAt: state.localJoinedAt,
+          name: getName(),
+          avatar: state.avatar,
+          micOn: state.micOn,
+          cameraOn: state.cameraOn,
+          screenOn: state.screenOn,
+          handoff: true
+        }));
+      }
+      return;
+    }
+    if (state.isHost && message.type === "join") {
+      const clientId = String(message.clientId || senderId);
+      const sender = state.dataConnections.get(senderId);
+      if (state.bannedClientIds.has(clientId)) {
+        sender?.send({ type: "participant-banned", roomCode: state.roomCode });
+        setTimeout(() => sender?.close(), 150);
+        return;
+      }
+      const moderation = state.moderationByClient.get(clientId) || { micLocked: false, cameraLocked: false };
+      const members = [{ peerId: state.peer.id, clientId: state.clientId, name: getName(), avatar: state.avatar, micOn: state.micOn, cameraOn: state.cameraOn, screenOn: state.screenOn, isAdmin: true, joinedAt: 0 }];
+      state.participants.forEach((person, peerId) => {
+        if (peerId !== "local" && peerId !== senderId && peerId !== state.formerAdminId) members.push({ peerId, clientId: person.clientId, name: person.name, avatar: person.avatar || "🌙", micOn: Boolean(person.micOn), cameraOn: Boolean(person.cameraOn), screenOn: Boolean(person.screenOn), isAdmin: Boolean(person.isAdmin), joinedAt: person.joinedAt || Date.now(), moderation: person.moderation || { micLocked: false, cameraLocked: false } });
+      });
+      if (sender?.open) sender.send({ type: "members", peers: members });
+      if (sender?.open) sender.send({ type: "profile", peerId: state.peer.id, name: getName(), avatar: state.avatar });
+      if (sender?.open) sender.send({ type: "moderation-status", peerId: senderId, clientId, ...moderation });
+      addParticipant(senderId, message.name || "Учасник", message.avatar || "🌙");
+      const participant = state.participants.get(senderId);
+      if (participant) {
+        participant.joinedAt ||= message.joinedAt || Date.now();
+        participant.clientId = clientId;
+        participant.moderation = moderation;
+        participant.micOn = Boolean(message.micOn);
+        participant.cameraOn = Boolean(message.cameraOn);
+        participant.screenOn = Boolean(message.screenOn);
+      }
+      broadcast({ type: "member-joined", peerId: senderId, clientId, name: String(message.name || "Учасник").slice(0, 28), avatar: message.avatar || "🌙", micOn: Boolean(message.micOn), cameraOn: Boolean(message.cameraOn), screenOn: Boolean(message.screenOn), joinedAt: participant?.joinedAt, moderation }, senderId);
+      updateRoomUI();
+      renderTiles();
+      if (!message.handoff) addRoomEvent("joined", participant?.name || message.name, true);
       return;
     }
     if (message.type === "members") {
@@ -1094,9 +1242,13 @@
           addParticipant(person.peerId, person.name, person.avatar);
           const participant = state.participants.get(person.peerId);
           if (participant) {
+            participant.clientId = person.clientId;
             participant.micOn = Boolean(person.micOn);
             participant.cameraOn = Boolean(person.cameraOn);
             participant.screenOn = Boolean(person.screenOn);
+            participant.isAdmin = Boolean(person.isAdmin);
+            participant.joinedAt = person.joinedAt || 0;
+            participant.moderation = person.moderation || { micLocked: false, cameraLocked: false };
           }
         }
       });
@@ -1108,12 +1260,19 @@
       addParticipant(message.peerId, message.name || "Учасник", message.avatar || "🌙");
       const participant = state.participants.get(message.peerId);
       if (participant) {
+        participant.clientId = message.clientId;
         participant.micOn = Boolean(message.micOn);
         participant.cameraOn = Boolean(message.cameraOn);
         participant.screenOn = Boolean(message.screenOn);
+        participant.joinedAt = message.joinedAt || participant.joinedAt || Date.now();
+        participant.moderation = message.moderation || { micLocked: false, cameraLocked: false };
       }
       updateRoomUI();
       renderTiles();
+      return;
+    }
+    if (message.type === "moderation-status") {
+      applyModerationStatus(message);
       return;
     }
     if (message.type === "media-status") {
@@ -1180,7 +1339,7 @@
       if (name) existing.name = name;
       if (avatar) existing.avatar = safeAvatar;
     } else {
-      state.participants.set(peerId, { name: name || "Учасник", avatar: safeAvatar, stream: null });
+      state.participants.set(peerId, { name: name || "Учасник", avatar: safeAvatar, stream: null, isAdmin: false, joinedAt: Date.now() });
     }
     if (state.peer.id.localeCompare(peerId) < 0) {
       state.mediaReady.then(() => {
@@ -1252,6 +1411,92 @@
     const row = Array.from($("#peopleList").querySelectorAll(".person-row")).find((item) => item.dataset.person === peerId);
     row?.classList.toggle("is-speaking", speaking);
     row?.querySelector(".mic-indicator")?.classList.toggle("is-speaking", speaking);
+  }
+
+  async function enforceLocalRestrictions() {
+    if (state.localRestrictions.micLocked) {
+      const micTrack = state.localStream?.getAudioTracks()[0];
+      if (micTrack) micTrack.enabled = false;
+      state.micOn = false;
+      setSpeakingIndicator("local", false);
+    }
+    if (state.localRestrictions.cameraLocked) {
+      if (state.rawCameraTrack) state.rawCameraTrack.enabled = false;
+      if (state.cameraTrack) state.cameraTrack.enabled = false;
+      state.cameraOn = false;
+      const replacements = Array.from(state.calls.values()).map(async (call) => {
+        const sender = getVideoSender(call);
+        if (sender) await sender.replaceTrack(null);
+      });
+      await Promise.allSettled(replacements);
+    }
+    updateControlButtons();
+    updateRoomUI();
+    renderTiles();
+    broadcastMediaStatus();
+  }
+
+  function applyModerationStatus(message) {
+    const peerId = message.peerId;
+    const participant = state.participants.get(peerId);
+    const moderation = { micLocked: Boolean(message.micLocked), cameraLocked: Boolean(message.cameraLocked) };
+    if (participant) {
+      participant.clientId = message.clientId || participant.clientId;
+      participant.moderation = moderation;
+    }
+    if (peerId === "local" || message.clientId === state.clientId) {
+      state.localRestrictions = moderation;
+      enforceLocalRestrictions();
+      return;
+    }
+    updateRoomUI();
+    renderTiles();
+  }
+
+  function setParticipantRestriction(peerId, kind, locked) {
+    if (!state.isHost || !["micLocked", "cameraLocked"].includes(kind)) return;
+    const participant = state.participants.get(peerId);
+    const connection = state.dataConnections.get(peerId);
+    if (!participant?.clientId || !connection?.open) return toast(translatePhrase("Участник уже отключился."));
+    const moderation = { ...(participant.moderation || {}), [kind]: locked };
+    participant.moderation = moderation;
+    state.moderationByClient.set(participant.clientId, moderation);
+    persistRoomModeration();
+    broadcast({ type: "moderation-status", peerId, clientId: participant.clientId, ...moderation });
+    addRoomEvent(kind === "micLocked" ? (locked ? "mic-locked" : "mic-unlocked") : (locked ? "camera-locked" : "camera-unlocked"), participant.name, true);
+    updateRoomUI();
+    renderTiles();
+  }
+
+  function moderateParticipant(peerId, action) {
+    if (action === "local-mute") {
+      if (state.localMutedParticipants.has(peerId)) state.localMutedParticipants.delete(peerId);
+      else state.localMutedParticipants.add(peerId);
+      renderTiles();
+      renderParticipants();
+      return;
+    }
+    if (!state.isHost || peerId === "local") return;
+    const participant = state.participants.get(peerId);
+    const connection = state.dataConnections.get(peerId);
+    if (!participant) return;
+    if (action === "mic-lock" || action === "camera-lock") {
+      const key = action === "mic-lock" ? "micLocked" : "cameraLocked";
+      setParticipantRestriction(peerId, key, !Boolean(participant.moderation?.[key]));
+      return;
+    }
+    if (!connection?.open) return toast(translatePhrase("Участник уже отключился."));
+    if (action === "kick" || action === "ban") {
+      if (action === "ban" && !participant.clientId) return toast(translatePhrase("Не удалось заблокировать участника; дождитесь переподключения."));
+      if (action === "ban") {
+        state.bannedClientIds.add(participant.clientId);
+        persistRoomModeration();
+      }
+      state.pendingLeaveEvents.set(peerId, { event: action === "ban" ? "banned" : "kicked", name: participant.name });
+      connection.send({ type: "participant-banned", reason: action });
+      removeParticipant(peerId);
+      setTimeout(() => connection.close(), 200);
+    }
   }
 
   function startSpeakerMeter(peerId, stream) {
@@ -1400,7 +1645,7 @@
     const total = Math.max(1, state.participants.size);
     $("#participantCount").innerHTML = `<i data-lucide="users-round"></i> ${total}`;
     $("#peopleCount").textContent = total;
-    $("#meetingTitle").textContent = total === 1 ? (state.isHost ? "Встреча создана" : "Подключено") : `Участники: ${total}`;
+    $("#meetingTitle").textContent = state.roomCode.match(/.{1,3}/g)?.join(" ") || "—— ——";
     renderParticipants();
     refreshIcons();
   }
@@ -1412,13 +1657,20 @@
       const name = escapeHTML(person.name || "Учасник");
       const avatar = avatarMarkup(person.avatar, name.slice(0, 1).toUpperCase());
       const local = id === "local";
+      const isAdmin = state.isHost;
+      const hasAdminBadge = local ? state.isHost : Boolean(person.isAdmin);
       const micOn = local ? state.micOn : Boolean(person.micOn);
       const cameraOn = local ? state.cameraOn : Boolean(person.cameraOn);
       const screenOn = local ? state.screenOn : Boolean(person.screenOn);
+      const localMuted = !local && state.localMutedParticipants.has(id);
+      const restrictions = person.moderation || { micLocked: false, cameraLocked: false };
       const speakingClass = person.isSpeaking ? " is-speaking" : "";
       const cameraIcon = screenOn ? "monitor-up" : cameraOn ? "video" : "video-off";
       const cameraLabel = screenOn ? "Демонстрация экрана" : cameraOn ? "Камера включена" : "Камера выключена";
-      return `<button type="button" class="person-row ${local ? "person-self" : ""}${speakingClass}" data-person="${escapeHTML(id)}"><span class="person-avatar">${avatar}</span><span class="person-info"><strong>${name}${local ? " · вы" : ""}</strong><small>${local ? "Это вы" : "На связи"}</small></span><span class="person-status" aria-label="Микрофон ${micOn ? "включён" : "выключен"}; ${cameraLabel}"><i class="mic-indicator ${micOn ? "is-on" : "is-off"}${speakingClass}" data-lucide="${micOn ? "mic" : "mic-off"}" title="Микрофон ${micOn ? "включён" : "выключен"}"></i><i class="${cameraOn || screenOn ? "is-on" : "is-off"}" data-lucide="${cameraIcon}" title="${cameraLabel}"></i></span></button>`;
+      const adminCrown = hasAdminBadge ? `<i class="admin-crown" data-lucide="crown" title="${escapeHTML(translatePhrase("Администратор"))}" aria-label="${escapeHTML(translatePhrase("Администратор"))}"></i>` : "";
+      const muteLabel = localMuted ? translatePhrase("Включить звук для себя") : translatePhrase("Выключить звук для себя");
+      const actions = local ? "" : `<div class="participant-actions"><button class="participant-action-trigger" type="button" data-admin-menu="${escapeHTML(id)}" title="${escapeHTML(translatePhrase("Действия участника"))}" aria-label="${escapeHTML(translatePhrase("Действия участника"))}"><i data-lucide="ellipsis"></i></button><div class="participant-action-menu hidden" data-participant-menu="${escapeHTML(id)}"><button type="button" data-moderate="local-mute" data-peer-id="${escapeHTML(id)}"><i data-lucide="${localMuted ? "volume-2" : "volume-x"}"></i>${escapeHTML(muteLabel)}</button>${isAdmin ? `<button type="button" data-moderate="mic-lock" data-peer-id="${escapeHTML(id)}"><i data-lucide="${restrictions.micLocked ? "mic" : "mic-off"}"></i>${escapeHTML(translatePhrase(restrictions.micLocked ? "Разрешить микрофон" : "Отключить микрофон всем"))}</button><button type="button" data-moderate="camera-lock" data-peer-id="${escapeHTML(id)}"><i data-lucide="${restrictions.cameraLocked ? "video" : "video-off"}"></i>${escapeHTML(translatePhrase(restrictions.cameraLocked ? "Разрешить камеру" : "Отключить камеру всем"))}</button><button type="button" class="is-danger" data-moderate="kick" data-peer-id="${escapeHTML(id)}"><i data-lucide="user-round-x"></i>${escapeHTML(translatePhrase("Удалить участника"))}</button><button type="button" class="is-danger" data-moderate="ban" data-peer-id="${escapeHTML(id)}"><i data-lucide="ban"></i>${escapeHTML(translatePhrase("Забанить участника"))}</button>` : ""}</div></div>`;
+      return `<div class="person-row-wrap" data-person="${escapeHTML(id)}"><button type="button" class="person-row ${local ? "person-self" : ""}${speakingClass}" aria-label="${escapeHTML(name)}"><span class="person-avatar">${avatar}</span><span class="person-info"><strong>${adminCrown}${name}${local ? ` · ${escapeHTML(translatePhrase("Гость"))}` : ""}</strong><small>${local ? escapeHTML(translatePhrase("Это вы")) : escapeHTML(translatePhrase("На связи"))}</small></span><span class="person-status" aria-label="Микрофон ${micOn ? "включён" : "выключен"}; ${cameraLabel}"><i class="mic-indicator ${micOn ? "is-on" : "is-off"}${speakingClass}" data-lucide="${micOn ? "mic" : "mic-off"}" title="${escapeHTML(translatePhrase(micOn ? "Микрофон включён" : "Микрофон выключен"))}"></i><i class="${cameraOn || screenOn ? "is-on" : "is-off"}" data-lucide="${cameraIcon}" title="${escapeHTML(translatePhrase(cameraLabel))}"></i></span></button>${actions}</div>`;
     }).join("");
     refreshIcons();
   }
@@ -1435,13 +1687,43 @@
     }
   }
 
+  function roomEventMessage(event, name) {
+    const templates = {
+      joined: { ru: "{name} вошёл в комнату", uk: "{name} увійшов до кімнати", en: "{name} joined the room" },
+      left: { ru: "{name} покинул комнату", uk: "{name} залишив кімнату", en: "{name} left the room" },
+      admin: { ru: "{name} стал администратором", uk: "{name} став адміністратором", en: "{name} is now the administrator" },
+      kicked: { ru: "{name} удалён администратором", uk: "{name} видалений адміністратором", en: "{name} was removed by the administrator" },
+      banned: { ru: "{name} заблокирован администратором", uk: "{name} заблокований адміністратором", en: "{name} was banned by the administrator" },
+      "mic-locked": { ru: "Администратор отключил микрофон для {name}", uk: "Адміністратор вимкнув мікрофон для {name}", en: "The administrator muted {name}" },
+      "mic-unlocked": { ru: "Администратор разрешил микрофон для {name}", uk: "Адміністратор дозволив мікрофон для {name}", en: "The administrator unmuted {name}" },
+      "camera-locked": { ru: "Администратор отключил камеру для {name}", uk: "Адміністратор вимкнув камеру для {name}", en: "The administrator turned off the camera for {name}" },
+      "camera-unlocked": { ru: "Администратор разрешил камеру для {name}", uk: "Адміністратор дозволив камеру для {name}", en: "The administrator enabled the camera for {name}" }
+    };
+    return (templates[event]?.[state.language] || templates.joined.ru).replace("{name}", String(name || translatePhrase("Участник")));
+  }
+
+  function addRoomEvent(event, name, broadcastEvent = false) {
+    const displayName = String(name || translatePhrase("Участник")).slice(0, 28);
+    addChatMessage({
+      id: `${Date.now()}-system-${Math.random().toString(36).slice(2, 7)}`,
+      type: "system",
+      system: true,
+      text: roomEventMessage(event, displayName),
+      time: new Date().toLocaleTimeString(languageLocales[state.language], { hour: "2-digit", minute: "2-digit" }),
+      own: false
+    });
+    if (broadcastEvent) broadcast({ type: "room-event", event, name: displayName });
+  }
+
   function renderChat() {
     const container = $("#chatMessages");
     if (!container) return;
     if (state.messages.length === 0) {
       container.innerHTML = `<div class="chat-empty"><i data-lucide="messages-square"></i><span>Почніть розмову тут</span><small>Повідомлення бачать усі в кімнаті</small></div>`;
     } else {
-      container.innerHTML = state.messages.map((message) => `<article class="chat-message ${message.own ? "chat-message-own" : ""}"><span class="person-avatar">${avatarMarkup(message.avatar)}</span><div><div class="chat-message-meta"><strong>${escapeHTML(message.name)}</strong><time>${escapeHTML(message.time)}</time></div><p>${escapeHTML(message.text)}</p></div></article>`).join("");
+      container.innerHTML = state.messages.map((message) => message.system
+        ? `<div class="chat-system-message"><span>${escapeHTML(message.text)}</span><time>${escapeHTML(message.time)}</time></div>`
+        : `<article class="chat-message ${message.own ? "chat-message-own" : ""}"><span class="person-avatar">${avatarMarkup(message.avatar)}</span><div><div class="chat-message-meta"><strong>${escapeHTML(message.name)}</strong><time>${escapeHTML(message.time)}</time></div><p>${escapeHTML(message.text)}</p></div></article>`).join("");
       container.scrollTop = container.scrollHeight;
     }
     refreshIcons();
@@ -1487,10 +1769,66 @@
     await refreshAudioDevices();
   }
 
+  function stopCameraPreview() {
+    state.cameraPreviewGeneration += 1;
+    if (state.cameraPreviewStream) {
+      state.cameraPreviewStream.getTracks().forEach((track) => track.stop());
+      state.cameraPreviewStream = null;
+    }
+    const video = $("#cameraPreviewVideo");
+    video.srcObject = null;
+    video.classList.remove("is-mirrored");
+    $("#cameraPreview").classList.remove("is-ready");
+    $("#cameraPreviewPlaceholder").classList.remove("hidden");
+  }
+
+  async function refreshCameraPreview() {
+    stopCameraPreview();
+    if ($("#effectsModal").classList.contains("hidden")) return;
+    const generation = state.cameraPreviewGeneration;
+    const video = $("#cameraPreviewVideo");
+    const preview = $("#cameraPreview");
+    const placeholder = $("#cameraPreviewPlaceholder");
+    const setReady = () => {
+      video.classList.toggle("is-mirrored", state.mirrorOn);
+      preview.classList.add("is-ready");
+      placeholder.classList.add("hidden");
+      video.play().catch(() => {});
+    };
+
+    if (state.cameraOn && state.localStream?.getVideoTracks().some((track) => track.readyState === "live")) {
+      video.srcObject = state.localStream;
+      setReady();
+      return;
+    }
+
+    $("#cameraPreviewMessage").textContent = translatePhrase("Предпросмотр появится после запуска камеры.");
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: getCameraConstraints(), audio: false });
+      if (generation !== state.cameraPreviewGeneration || $("#effectsModal").classList.contains("hidden")) {
+        stream.getTracks().forEach((track) => track.stop());
+        return;
+      }
+      state.cameraPreviewStream = stream;
+      video.srcObject = stream;
+      setReady();
+    } catch (error) {
+      if (generation !== state.cameraPreviewGeneration) return;
+      console.error(error);
+      $("#cameraPreviewMessage").textContent = translatePhrase("Предпросмотр камеры недоступен.");
+    }
+  }
+
+  function closeCameraSettings() {
+    $("#effectsModal").classList.add("hidden");
+    stopCameraPreview();
+  }
+
   async function openCameraSettings() {
     $("#effectsModal").classList.remove("hidden");
-    await state.mediaReady;
     await refreshAudioDevices();
+    await refreshCameraPreview();
+    refreshIcons();
   }
 
   function setLayout(layout) {
@@ -1531,10 +1869,10 @@
       const gridRect = tileGrid.getBoundingClientRect();
       tileGrid.querySelectorAll(".tile").forEach((tile) => {
         const rect = tile.getBoundingClientRect();
-        const width = Math.max(160, Math.min(420, gridRect.width, rect.width));
-        const height = Math.max(110, Math.round(width * rect.height / Math.max(1, rect.width)));
-        const x = Math.min(gridRect.width - width, Math.max(0, rect.left - gridRect.left));
-        const y = Math.min(gridRect.height - height, Math.max(0, rect.top - gridRect.top));
+        const width = Math.max(1, Math.min(420, gridRect.width, rect.width));
+        const height = Math.max(1, Math.min(gridRect.height, Math.round(width * rect.height / Math.max(1, rect.width))));
+        const x = Math.min(Math.max(0, gridRect.width - width), Math.max(0, rect.left - gridRect.left));
+        const y = Math.min(Math.max(0, gridRect.height - height), Math.max(0, rect.top - gridRect.top));
         state.tilePositions.set(tile.dataset.id, { x, y });
         state.tileSizes.set(tile.dataset.id, { width, height });
       });
@@ -1550,8 +1888,8 @@
 
   function getDefaultFreePosition(index) {
     const gap = 12;
-    const width = Math.max(160, Math.min(360, (tileGrid.clientWidth - gap) / 2));
-    const height = Math.round(width * 9 / 16);
+    const width = Math.max(1, Math.min(360, (tileGrid.clientWidth - gap) / 2));
+    const height = Math.max(1, Math.round(width * 9 / 16));
     const columns = Math.max(1, Math.floor((tileGrid.clientWidth + gap) / (width + gap)));
     return { x: (index % columns) * (width + gap), y: Math.floor(index / columns) * (height + gap), width, height };
   }
@@ -1576,10 +1914,14 @@
       const avatar = avatarMarkup(person.avatar, initials);
       const videoOn = local ? state.cameraOn || state.screenOn : Boolean(person.cameraOn || person.screenOn);
       const videoClass = person.stream && videoOn ? "tile-video" : "tile-video hidden-video";
+      const audioMutedForMe = local || state.localMutedParticipants.has(id);
       const mirrorClass = local && state.mirrorOn && !state.screenOn ? " mirrored-video" : "";
       const avatarClass = person.stream && videoOn ? "tile-avatar hidden-avatar" : "tile-avatar";
       const micOn = local ? state.micOn : Boolean(person.micOn);
       const icon = micOn ? "mic" : "mic-off";
+      const isAdmin = state.isHost;
+      const hasAdminCrown = local ? state.isHost : Boolean(person.isAdmin);
+      const adminCrown = hasAdminCrown ? `<i class="admin-crown" data-lucide="crown" title="${escapeHTML(translatePhrase("Администратор"))}" aria-label="${escapeHTML(translatePhrase("Администратор"))}"></i>` : "";
       const speakingClass = person.isSpeaking ? " is-speaking" : "";
       const focusClass = state.focusId === id ? " tile-focus" : "";
       const glowClass = local && state.glowOn ? "glow-on" : "";
@@ -1587,7 +1929,8 @@
       const sizeClass = size ? " tile-resized" : "";
       const position = freeLayout ? state.tilePositions.get(id) : null;
       const sizeStyle = `${size ? `width:${size.width}px;height:${size.height}px;` : ""}${position ? `left:${position.x}px;top:${position.y}px;` : ""}`;
-      return `<article class="tile${focusClass}${sizeClass}${speakingClass} ${local ? "tile-local" : ""} ${glowClass}" data-id="${escapeHTML(id)}" draggable="${!freeLayout}" style="${sizeStyle}--glow-color:${state.glowColor};--glow-strength:${state.glowStrength / 100};--glow-width:${state.glowWidth}px;--glow-spread:${state.glowWidth * 8}px;--glow-inset:${state.glowWidth * 5}px"><video class="${videoClass}${mirrorClass}" autoplay playsinline ${local ? "muted" : ""}></video><div class="${avatarClass}">${avatar}</div><button class="tile-resize-handle" type="button" data-resize="${escapeHTML(id)}" aria-label="Изменить размер камеры ${safeName}" title="Изменить размер"><i data-lucide="move-diagonal-2"></i></button><div class="tile-name"><i class="speaker-indicator" data-lucide="${icon}"></i><span>${safeName}${local ? " · вы" : ""}</span></div></article>`;
+      const guestSuffix = local ? ` · ${escapeHTML(translatePhrase("Гость"))}` : "";
+      return `<article class="tile${focusClass}${sizeClass}${speakingClass} ${local ? "tile-local" : ""} ${glowClass}" data-id="${escapeHTML(id)}" draggable="${!freeLayout}" style="${sizeStyle}--glow-color:${state.glowColor};--glow-strength:${state.glowStrength / 100};--glow-width:${state.glowWidth}px;--glow-spread:${state.glowWidth * 8}px;--glow-inset:${state.glowWidth * 5}px"><video class="${videoClass}${mirrorClass}" autoplay playsinline ${audioMutedForMe ? "muted" : ""}></video><div class="${avatarClass}">${avatar}</div><button class="tile-resize-handle" type="button" data-resize="${escapeHTML(id)}" aria-label="Изменить размер камеры ${safeName}" title="Изменить размер"><i data-lucide="move-diagonal-2"></i></button><div class="tile-name"><i class="speaker-indicator" data-lucide="${icon}"></i>${adminCrown}<span>${safeName}${guestSuffix}</span></div></article>`;
     }).join("");
 
     entries.forEach(([id, person]) => {
@@ -1624,6 +1967,7 @@
   }
 
   async function toggleMic() {
+    if (state.localRestrictions.micLocked && !state.micOn) return toast(translatePhrase("Администратор отключил ваш микрофон."));
     if (!state.localStream) {
       await enableMedia();
       if (!state.localStream) return;
@@ -1641,6 +1985,7 @@
   }
 
   async function toggleCamera() {
+    if (state.localRestrictions.cameraLocked && !state.cameraOn) return toast(translatePhrase("Администратор отключил вашу камеру."));
     if (!state.localStream) {
       await enableMedia();
       if (!state.localStream) return;
@@ -1671,6 +2016,7 @@
     updateControlButtons();
     updateRoomUI();
     renderTiles();
+    if (!$("#effectsModal").classList.contains("hidden")) await refreshCameraPreview();
   }
 
   async function toggleScreenShare() {
@@ -1760,6 +2106,63 @@
     } catch {
       window.prompt("Скопіюй посилання-запрошення:", invite.toString());
     }
+  }
+
+  async function copyRoomCode() {
+    const button = $("#copyRoomCode");
+    const label = button.querySelector("span");
+    const code = state.roomCode;
+    try {
+      try {
+        await navigator.clipboard.writeText(code);
+      } catch {
+        const field = document.createElement("textarea");
+        field.value = code;
+        field.style.position = "fixed";
+        field.style.left = "-9999px";
+        document.body.append(field);
+        field.select();
+        const copied = document.execCommand("copy");
+        field.remove();
+        if (!copied) throw new Error("Clipboard unavailable");
+      }
+      label.textContent = "Copied";
+      button.classList.add("is-copied");
+      window.clearTimeout(button.copyResetTimer);
+      button.copyResetTimer = window.setTimeout(() => {
+        label.textContent = translatePhrase("Скопировать");
+        button.classList.remove("is-copied");
+      }, 1400);
+    } catch {
+      toast("Не удалось скопировать код");
+    }
+  }
+
+  async function leaveMeeting() {
+    if (!state.isHost) return cleanup();
+    const successor = Array.from(state.participants.entries())
+      .filter(([peerId]) => peerId !== "local" && state.dataConnections.get(peerId)?.open)
+      .sort(([, first], [, second]) => (first.joinedAt || Number.MAX_SAFE_INTEGER) - (second.joinedAt || Number.MAX_SAFE_INTEGER))[0];
+    if (!successor) return cleanup();
+
+    const [newAdminId, newAdmin] = successor;
+    const previousAdminId = state.peer.id;
+    broadcast({
+      type: "admin-transfer",
+      previousAdminId,
+      newAdminId,
+      adminName: newAdmin.name,
+      bannedClientIds: [...state.bannedClientIds],
+      moderationEntries: [...state.moderationByClient]
+    });
+    addRoomEvent("admin", newAdmin.name, false);
+    saveRecentRoom(state.roomCode, newAdminId);
+    toast(translatePhrase("Права администратора переданы."));
+    await new Promise((resolve) => setTimeout(resolve, 180));
+    state.formerAdminId = previousAdminId;
+    state.hostId = newAdminId;
+    state.isHost = false;
+    cleanup();
   }
 
   function cleanup(goHome = true) {
@@ -1873,7 +2276,12 @@
   });
 
   $("#nameButton").addEventListener("click", openProfileModal);
-  $("#profileNav").addEventListener("click", openProfileModal);
+  $("#homeProfileSettings").addEventListener("click", openProfileModal);
+  $("#homeAudioSettings").addEventListener("click", openAudioSettings);
+  $("#homeCameraSettings").addEventListener("click", openCameraSettings);
+  $("#meetingProfileSettings").addEventListener("click", openProfileModal);
+  $("#meetingAudioSettings").addEventListener("click", openAudioSettings);
+  $("#meetingCameraSettings").addEventListener("click", openCameraSettings);
   $("#profileButton").addEventListener("click", openProfileModal);
   $("#closeProfile").addEventListener("click", () => $("#profileModal").classList.add("hidden"));
   $("#profileModal").addEventListener("click", (event) => {
@@ -1906,6 +2314,22 @@
   });
   $("#closeCallPanel").addEventListener("click", () => openCallPanel(state.openPanel));
   $("#peopleList").addEventListener("click", (event) => {
+    const menuButton = event.target.closest("[data-admin-menu]");
+    if (menuButton) {
+      const peerId = menuButton.dataset.adminMenu;
+      const menu = $("#peopleList").querySelector(`[data-participant-menu="${CSS.escape(peerId)}"]`);
+      const willOpen = menu?.classList.contains("hidden");
+      $("#peopleList").querySelectorAll(".participant-action-menu").forEach((item) => item.classList.add("hidden"));
+      menu?.classList.toggle("hidden", !willOpen);
+      return;
+    }
+    const actionButton = event.target.closest("[data-moderate]");
+    if (actionButton) {
+      event.stopPropagation();
+      actionButton.closest(".participant-action-menu")?.classList.add("hidden");
+      moderateParticipant(actionButton.dataset.peerId, actionButton.dataset.moderate);
+      return;
+    }
     const row = event.target.closest("[data-person]");
     if (row) focusParticipant(row.dataset.person);
   });
@@ -1970,9 +2394,9 @@
   navigator.mediaDevices?.addEventListener?.("devicechange", () => {
     if (!$("#audioSettingsModal").classList.contains("hidden")) refreshAudioDevices();
   });
-  $("#closeEffects").addEventListener("click", () => $("#effectsModal").classList.add("hidden"));
+  $("#closeEffects").addEventListener("click", closeCameraSettings);
   $("#effectsModal").addEventListener("click", (event) => {
-    if (event.target === $("#effectsModal")) $("#effectsModal").classList.add("hidden");
+    if (event.target === $("#effectsModal")) closeCameraSettings();
   });
   $("#glowToggle").addEventListener("change", (event) => {
     state.glowOn = event.target.checked;
@@ -1982,6 +2406,7 @@
   $("#mirrorToggle").addEventListener("change", (event) => {
     state.mirrorOn = event.target.checked;
     localStorage.setItem("mymeet-mirror", String(state.mirrorOn));
+    $("#cameraPreviewVideo").classList.toggle("is-mirrored", state.mirrorOn);
     renderTiles();
   });
   $("#glowColor").addEventListener("input", (event) => {
@@ -2003,9 +2428,10 @@
   });
   $("#copyInviteTop").addEventListener("click", copyInvite);
   $("#copyInviteEmpty").addEventListener("click", copyInvite);
-  $("#leaveButton").addEventListener("click", () => cleanup());
-  $("#leaveTop").addEventListener("click", () => cleanup());
-  $("#homeLink").addEventListener("click", (event) => { event.preventDefault(); cleanup(); });
+  $("#copyRoomCode").addEventListener("click", copyRoomCode);
+  $("#leaveButton").addEventListener("click", leaveMeeting);
+  $("#leaveTop").addEventListener("click", leaveMeeting);
+  $("#homeLink").addEventListener("click", (event) => { event.preventDefault(); leaveMeeting(); });
   $("#fullscreenButton").addEventListener("click", toggleFullscreen);
   document.addEventListener("fullscreenchange", updateFullscreenButton);
 
