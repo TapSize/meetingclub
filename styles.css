@@ -795,6 +795,22 @@ body[data-theme="night"] .free-layout-toggle.is-selected { border-color: var(--l
 .people-list { gap: 4px; padding-inline: 8px; }
 .person-row { border-radius: 7px; }
 .person-self { background: color-mix(in srgb, var(--loft-accent) 13%, transparent); }
+.person-row-wrap { position: relative; display: flex; align-items: center; gap: 3px; min-width: 0; }
+.person-row-wrap > .person-row { flex: 1 1 auto; width: auto; }
+.participant-actions { position: relative; flex: 0 0 auto; }
+.participant-action-trigger { width: 32px; height: 32px; display: grid; place-items: center; padding: 0; border: 1px solid transparent; border-radius: 7px; background: transparent; color: var(--loft-muted); cursor: pointer; transition: border-color .15s ease, background .15s ease, color .15s ease; }
+.participant-action-trigger svg { width: 16px; height: 16px; }
+.participant-action-trigger:hover, .participant-action-trigger[aria-expanded="true"] { border-color: var(--loft-line); background: var(--loft-raised); color: var(--loft-accent); }
+.participant-action-menu { position: absolute; z-index: 30; top: calc(100% + 5px); right: 0; width: min(220px, calc(100vw - 88px)); min-width: 0; padding: 6px; border: 1px solid var(--loft-line); border-radius: 8px; background: var(--loft-panel); box-shadow: 0 14px 34px rgba(15,17,19,.24); }
+.participant-menu-heading { display: flex; align-items: center; gap: 8px; margin: 0 2px 5px; padding: 7px 7px 9px; border-bottom: 1px solid var(--loft-line); color: var(--loft-muted); font-size: 9px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+.participant-menu-heading svg { width: 14px; height: 14px; color: var(--loft-accent); }
+.participant-action-menu button { width: 100%; min-height: 34px; display: grid; grid-template-columns: 16px minmax(0, 1fr); align-items: center; gap: 8px; padding: 7px 8px; border: 0; border-radius: 5px; background: transparent; color: var(--loft-ink); text-align: left; font: inherit; font-size: 10px; cursor: pointer; }
+.participant-action-menu button svg { width: 15px; height: 15px; color: var(--loft-muted); }
+.participant-action-menu button:hover { background: var(--loft-raised); color: var(--loft-accent); }
+.participant-action-menu button:hover svg { color: var(--loft-accent); }
+.participant-action-menu button[data-moderate="kick"] { margin-top: 5px; padding-top: 10px; border-top: 1px solid var(--loft-line); border-radius: 0; }
+.participant-action-menu button.is-danger, .participant-action-menu button.is-danger svg { color: var(--loft-danger); }
+.participant-action-menu button.is-danger:hover { background: color-mix(in srgb, var(--loft-danger) 10%, var(--loft-panel)); }
 .meeting-bottom { min-height: 84px; padding: 0 16px; }
 .controls { width: max-content; max-width: 100%; gap: 3px; padding: 6px 10px; border: 1px solid var(--loft-line); border-radius: 999px; background: var(--loft-panel); }
 .control-button { width: 54px; min-height: 61px; }

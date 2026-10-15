@@ -89,6 +89,7 @@
     ["Всегда", "Завжди", "Always"], ["рядом.", "поруч.", "close."],
     ["Создавайте встречи и подключайтесь по коду.", "Створюйте зустрічі та долучайтеся за кодом.", "Create meetings and join with a code."],
     ["Главная", "Головна", "Home"], ["Недавние", "Недавні", "Recent"], ["Профиль", "Профіль", "Profile"],
+    ["Действия участника", "Дії учасника", "Participant actions"],
     ["Новая встреча", "Нова зустріч", "New meeting"], ["Создать комнату", "Створити кімнату", "Create a room"],
     ["Создать встречу", "Створити зустріч", "Create meeting"], ["Войти по коду", "Увійти за кодом", "Join with a code"],
     ["Присоединиться к комнате", "Долучитися до кімнати", "Join a room"], ["Код встречи", "Код зустрічі", "Meeting code"],
@@ -1669,7 +1670,15 @@
       const cameraLabel = screenOn ? "Демонстрация экрана" : cameraOn ? "Камера включена" : "Камера выключена";
       const adminCrown = hasAdminBadge ? `<i class="admin-crown" data-lucide="crown" title="${escapeHTML(translatePhrase("Администратор"))}" aria-label="${escapeHTML(translatePhrase("Администратор"))}"></i>` : "";
       const muteLabel = localMuted ? translatePhrase("Включить звук для себя") : translatePhrase("Выключить звук для себя");
-      const actions = local ? "" : `<div class="participant-actions"><button class="participant-action-trigger" type="button" data-admin-menu="${escapeHTML(id)}" title="${escapeHTML(translatePhrase("Действия участника"))}" aria-label="${escapeHTML(translatePhrase("Действия участника"))}"><i data-lucide="ellipsis"></i></button><div class="participant-action-menu hidden" data-participant-menu="${escapeHTML(id)}"><button type="button" data-moderate="local-mute" data-peer-id="${escapeHTML(id)}"><i data-lucide="${localMuted ? "volume-2" : "volume-x"}"></i>${escapeHTML(muteLabel)}</button>${isAdmin ? `<button type="button" data-moderate="mic-lock" data-peer-id="${escapeHTML(id)}"><i data-lucide="${restrictions.micLocked ? "mic" : "mic-off"}"></i>${escapeHTML(translatePhrase(restrictions.micLocked ? "Разрешить микрофон" : "Отключить микрофон всем"))}</button><button type="button" data-moderate="camera-lock" data-peer-id="${escapeHTML(id)}"><i data-lucide="${restrictions.cameraLocked ? "video" : "video-off"}"></i>${escapeHTML(translatePhrase(restrictions.cameraLocked ? "Разрешить камеру" : "Отключить камеру всем"))}</button><button type="button" class="is-danger" data-moderate="kick" data-peer-id="${escapeHTML(id)}"><i data-lucide="user-round-x"></i>${escapeHTML(translatePhrase("Удалить участника"))}</button><button type="button" class="is-danger" data-moderate="ban" data-peer-id="${escapeHTML(id)}"><i data-lucide="ban"></i>${escapeHTML(translatePhrase("Забанить участника"))}</button>` : ""}</div></div>`;
+      const actions = local ? "" : `
+        <div class="participant-actions">
+          <button class="participant-action-trigger" type="button" data-admin-menu="${escapeHTML(id)}" title="${escapeHTML(translatePhrase("Действия участника"))}" aria-label="${escapeHTML(translatePhrase("Действия участника"))}" aria-expanded="false"><i data-lucide="sliders-horizontal"></i></button>
+          <div class="participant-action-menu hidden" data-participant-menu="${escapeHTML(id)}">
+            <div class="participant-menu-heading"><i data-lucide="shield-check"></i><span>${escapeHTML(translatePhrase("Действия участника"))}</span></div>
+            <button type="button" data-moderate="local-mute" data-peer-id="${escapeHTML(id)}"><i data-lucide="${localMuted ? "volume-2" : "volume-x"}"></i><span>${escapeHTML(muteLabel)}</span></button>
+            ${isAdmin ? `<button type="button" data-moderate="mic-lock" data-peer-id="${escapeHTML(id)}"><i data-lucide="${restrictions.micLocked ? "mic" : "mic-off"}"></i><span>${escapeHTML(translatePhrase(restrictions.micLocked ? "Разрешить микрофон" : "Отключить микрофон всем"))}</span></button><button type="button" data-moderate="camera-lock" data-peer-id="${escapeHTML(id)}"><i data-lucide="${restrictions.cameraLocked ? "video" : "video-off"}"></i><span>${escapeHTML(translatePhrase(restrictions.cameraLocked ? "Разрешить камеру" : "Отключить камеру всем"))}</span></button><button type="button" class="is-danger" data-moderate="kick" data-peer-id="${escapeHTML(id)}"><i data-lucide="user-round-x"></i><span>${escapeHTML(translatePhrase("Удалить участника"))}</span></button><button type="button" class="is-danger" data-moderate="ban" data-peer-id="${escapeHTML(id)}"><i data-lucide="ban"></i><span>${escapeHTML(translatePhrase("Забанить участника"))}</span></button>` : ""}
+          </div>
+        </div>`;
       return `<div class="person-row-wrap" data-person="${escapeHTML(id)}"><button type="button" class="person-row ${local ? "person-self" : ""}${speakingClass}" aria-label="${escapeHTML(name)}"><span class="person-avatar">${avatar}</span><span class="person-info"><strong>${adminCrown}${name}${local ? ` · ${escapeHTML(translatePhrase("Гость"))}` : ""}</strong><small>${local ? escapeHTML(translatePhrase("Это вы")) : escapeHTML(translatePhrase("На связи"))}</small></span><span class="person-status" aria-label="Микрофон ${micOn ? "включён" : "выключен"}; ${cameraLabel}"><i class="mic-indicator ${micOn ? "is-on" : "is-off"}${speakingClass}" data-lucide="${micOn ? "mic" : "mic-off"}" title="${escapeHTML(translatePhrase(micOn ? "Микрофон включён" : "Микрофон выключен"))}"></i><i class="${cameraOn || screenOn ? "is-on" : "is-off"}" data-lucide="${cameraIcon}" title="${escapeHTML(translatePhrase(cameraLabel))}"></i></span></button>${actions}</div>`;
     }).join("");
     refreshIcons();
@@ -2320,13 +2329,16 @@
       const menu = $("#peopleList").querySelector(`[data-participant-menu="${CSS.escape(peerId)}"]`);
       const willOpen = menu?.classList.contains("hidden");
       $("#peopleList").querySelectorAll(".participant-action-menu").forEach((item) => item.classList.add("hidden"));
+      $("#peopleList").querySelectorAll("[data-admin-menu]").forEach((button) => button.setAttribute("aria-expanded", "false"));
       menu?.classList.toggle("hidden", !willOpen);
+      menuButton.setAttribute("aria-expanded", String(willOpen));
       return;
     }
     const actionButton = event.target.closest("[data-moderate]");
     if (actionButton) {
       event.stopPropagation();
       actionButton.closest(".participant-action-menu")?.classList.add("hidden");
+      actionButton.closest(".participant-actions")?.querySelector("[data-admin-menu]")?.setAttribute("aria-expanded", "false");
       moderateParticipant(actionButton.dataset.peerId, actionButton.dataset.moderate);
       return;
     }
